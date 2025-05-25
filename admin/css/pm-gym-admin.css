@@ -1,0 +1,259 @@
+/* Gym Management Admin Styles */
+
+/* General Container Styles */
+.pm-gym-container {
+    margin: 20px 0;
+    padding: 20px;
+    background: #fff;
+    border-radius: 5px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.pm-stats-container {
+    display: flex;
+    gap: 20px;
+    margin: 20px 0;
+    flex-wrap: wrap;
+}
+.pm-stat-box {
+    background: #fff;
+    padding: 20px;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    flex: 1;
+    min-width: 200px;
+}
+.pm-stat-box h3 {
+    margin: 0 0 10px 0;
+    color: #23282d;
+    font-size: 14px;
+}
+.pm-stat-number {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 0;
+    color: #0073aa;
+}
+
+/* Form Styles */
+.pm-gym-form {
+    max-width: 600px;
+    margin: 0 auto;
+}
+.text-capitalize{
+    text-transform: capitalize;
+}
+.form-field {
+    margin-bottom: 15px;
+}
+
+.form-field label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.form-submit {
+    margin-top: 20px;
+}
+
+/* Table Styles */
+.pm-gym-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+.pm-gym-table th,
+.pm-gym-table td {
+    padding: 10px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+.pm-gym-table th {
+    background-color: #f5f5f5;
+    font-weight: bold;
+}
+
+/* Status Badges */
+.status-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.status-active {
+    background: #dff0d8;
+    color: #3c763d;
+}
+
+.status-inactive {
+    background: #f2dede;
+    color: #a94442;
+}
+
+.status-suspended {
+    background: #f20b06;
+    color: #fff;
+}
+
+.status-active {
+    background: #dff0d8;
+    color: #3c763d;
+    padding: 5px 10px;
+    border-radius: 5px;
+}
+
+.status-suspended {
+    background: #f2dede;
+    color: #a94442;
+    padding: 5px 10px;
+    border-radius: 5px;
+}
+
+.status-expired {
+    background: #f2dede;
+    color: #a94442;
+    padding: 5px 10px;
+    border-radius: 5px;
+}
+
+.status-pending {
+    background: #ffc1074a;
+    color: #a07903;
+    padding: 5px 10px;
+    border-radius: 5px;
+}
+
+/* Action Buttons */
+.action-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.edit-button,
+.delete-button {
+    padding: 5px 10px;
+    border-radius: 3px;
+    text-decoration: none;
+    font-size: 12px;
+}
+
+.edit-button {
+    background: #0073aa;
+    color: #fff;
+}
+
+.delete-button {
+    background: #dc3545;
+    color: #fff;
+}
+
+/* Statistics Boxes */
+.stats-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.stat-box {
+    background: #fff;
+    padding: 20px;
+    border-radius: 5px;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.stat-box h3 {
+    margin: 0 0 10px 0;
+    color: #23282d;
+}
+
+.stat-number {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 0;
+    color: #0073aa;
+}
+
+/* Attendance Specific Styles */
+.attendance-form {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    margin-bottom: 20px;
+}
+
+.attendance-form .form-field {
+    margin-bottom: 0;
+}
+
+/* Fee Management Styles */
+.payment-form {
+    background: #fff;
+    padding: 20px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    
+}
+.payment-form  form{
+    display: flex;
+    gap: 10px;
+}
+.payment-form .form-field{
+   flex: 1;
+}
+
+.payment-history {
+    margin-top: 30px;
+}
+
+.row{
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    gap: 10px;
+}
+.row > *{
+    flex: 1;
+}
+.form-field input[type="text"], .form-field input[type="tel"], .form-field select, .form-field textarea{
+    max-width: 100%;
+}
+.form-field input[type=email], .form-field input[type=number], .form-field input[type=password], .form-field input[type=search], .form-field input[type=tel], .form-field input[type=text], .form-field input[type=url], .form-field textarea{
+    width: 100%;
+}
+
+/* Responsive Design */
+@media screen and (max-width: 782px) {
+    .pm-gym-table {
+        display: block;
+        overflow-x: auto;
+    }
+    
+    .stats-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .attendance-form {
+        flex-direction: column;
+    }
+    
+    .attendance-form .form-field {
+        width: 100%;
+    }
+} 
