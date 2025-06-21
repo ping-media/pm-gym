@@ -76,6 +76,7 @@ class PM_Gym_Activator
             attendance_type varchar(20) DEFAULT NULL,
             duration_minutes int DEFAULT NULL,
             PRIMARY KEY  (id),
+            UNIQUE KEY unique_attendance (user_id, user_type, check_in_date),
             KEY user_id (user_id),
             KEY user_type (user_type),
             KEY check_in_date (check_in_date)
