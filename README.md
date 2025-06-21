@@ -74,6 +74,23 @@ This plugin is licensed under the GPL v2 or later.
 
 ## Changelog
 
+### 1.2.2
+
+- Added staff attendance tracking functionality with morning/evening shift support
+- Implemented staff management system with role-based access
+- Enhanced admin interface with staff attendance display and management
+- Added staff attendance form for public access with shift validation
+- Improved database structure for staff management with shift tracking
+- Added staff attendance shortcodes for frontend integration
+- Implemented CSV export functionality for staff attendance data
+- Added digital signature capture and display system for member registration
+- Enhanced member signature shortcode with metadata support
+- Added comprehensive data export features (members, staff, attendance)
+- Implemented shift-based attendance validation (morning before 4 PM, evening after 4 PM)
+- Enhanced security and data validation for all forms
+- Added automatic export directory creation for CSV downloads
+- Bug fixes and performance improvements
+
 ### 1.0.0
 
 - Initial release

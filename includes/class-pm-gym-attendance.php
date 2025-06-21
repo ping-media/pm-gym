@@ -216,22 +216,7 @@ class PM_Gym_Attendance
             );
 
             if ($attendance_type === 'check_in') {
-                // Use a transient to lock check-ins for this member to prevent race conditions
-                $lock_key = 'pm_gym_checkin_lock_' . $member->id;
-                if (false === add_transient($lock_key, true, 15)) { // Lock for 15 seconds
-                    wp_send_json_error('A check-in is already in progress. Please wait a moment and try again.');
-                    return;
-                }
-
-                // Re-check for an existing check-in now that we have a lock.
-                $already_checked_in = $wpdb->get_var($wpdb->prepare(
-                    "SELECT id FROM $attendance_table WHERE user_id = %d AND check_in_date = %s",
-                    $member->id,
-                    $today
-                ));
-
-                if (!empty($already_checked_in)) {
-                    delete_transient($lock_key); // Release the lock
+                if (!empty($existing_attendance)) {
                     wp_send_json_error('Hello ' . $member->name . ', you have already checked in today!');
                     return;
                 }
@@ -249,8 +234,6 @@ class PM_Gym_Attendance
                     $attendance_data,
                     array('%d', '%s', '%s', '%s')
                 );
-
-                delete_transient($lock_key); // Always release the lock after the operation
 
                 // Print detailed error information if the insert fails
                 if ($result === false) {
