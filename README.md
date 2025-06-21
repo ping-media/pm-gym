@@ -1,41 +1,84 @@
 # PM Gym Management
 
-A comprehensive gym management system for WordPress with member management, attendance tracking, and fee management.
+A comprehensive gym management system for WordPress with member management, staff management, attendance tracking, fee management, and digital signature capabilities.
 
 ## Description
 
-PM Gym Management is a powerful WordPress plugin designed to help gym owners efficiently manage their business operations. This plugin provides a complete solution for managing gym members, tracking attendance, handling membership packages, processing payments, and more.
+PM Gym Management is a powerful WordPress plugin designed to help gym owners efficiently manage their business operations. This plugin provides a complete solution for managing gym members and staff, tracking attendance with shift-based systems, handling membership packages, processing payments, capturing digital signatures, and generating comprehensive reports through CSV exports.
 
 ## Features
 
 - **Member Management**
 
-  - Store and manage member profiles
+  - Store and manage member profiles with complete information
   - Track membership status and expiration dates
-  - Manage member meta data
+  - Manage member meta data and preferences
+  - Digital signature capture and storage for member registration
+
+- **Staff Management**
+
+  - Complete staff profile management system
+  - Role-based access control for different staff positions
+  - Staff attendance tracking with shift-based validation
+  - Morning and evening shift support with time restrictions
 
 - **Guest User Management**
 
   - Register and track guest users
+  - Guest attendance monitoring
 
 - **Membership Management**
 
   - Create and manage different membership plans
   - Handle membership renewals and expirations
+  - Package assignment and customization
 
 - **Attendance Tracking**
 
   - Record and monitor member attendance
-  - Generate attendance reports
+  - Staff attendance tracking with shift validation
+  - Generate comprehensive attendance reports
+  - Real-time attendance status monitoring
 
 - **Payment Processing**
 
   - Record and track payment transactions
   - Generate payment receipts and invoices
+  - Payment history and reporting
 
 - **Package Management**
+
   - Create and customize gym membership packages
   - Assign packages to members
+  - Package pricing and duration management
+
+- **Digital Signature System**
+
+  - Capture digital signatures during member registration
+  - Signature storage with metadata (timestamp, IP, phone)
+  - Signature display shortcode for frontend integration
+  - Multi-level JSON encoding support for signature data
+
+- **Data Export & Reporting**
+
+  - CSV export functionality for all data types
+  - Export members, staff, and attendance data
+  - Automatic export directory creation
+  - Downloadable reports with proper formatting
+
+- **Shortcodes & Frontend Integration**
+
+  - Member registration form shortcode
+  - Attendance tracking form shortcode
+  - Staff attendance form shortcode
+  - Member signature display shortcode
+  - Responsive design for mobile compatibility
+
+- **Security & Validation**
+  - Enhanced data validation for all forms
+  - Shift-based attendance validation
+  - Role-based access control
+  - Secure data handling and storage
 
 ## Installation
 
@@ -58,7 +101,14 @@ You can access the plugin settings from the WordPress dashboard under "PM Gym" m
 
 ## Shortcodes
 
-The plugin provides various shortcodes that you can use to display gym management features on your website. Documentation for these shortcodes will be available in the plugin settings page.
+The plugin provides various shortcodes that you can use to display gym management features on your website:
+
+- `[attendance_form_shortcode]` - Displays the member attendance tracking form
+- `[member_registration_form_shortcode]` - Displays the member registration form with digital signature
+- `[staff_attendance_form_shortcode]` - Displays the staff attendance tracking form
+- `[member_signature member_id="123"]` - Displays a member's digital signature (replace 123 with actual member ID)
+
+These shortcodes can be used on any page or post to integrate gym management functionality into your website's frontend.
 
 ## Support
 
