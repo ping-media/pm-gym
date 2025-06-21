@@ -92,6 +92,42 @@ class PM_Gym_Activator
             KEY meta_key (meta_key(191))
         ) $charset_collate;";
 
+        // Create staff table
+        $staff_table_name = $wpdb->prefix . 'pm_gym_staff';
+        $sql .= "CREATE TABLE IF NOT EXISTS $staff_table_name (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            staff_id bigint(20) NOT NULL,
+            name varchar(255) NOT NULL,
+            role varchar(50) NOT NULL,
+            phone varchar(20) NOT NULL,
+            aadhar_number varchar(20) NULL,
+            address text NULL,
+            status varchar(20) NOT NULL DEFAULT 'active',
+            date_created datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            date_modified datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY  (id),
+            UNIQUE KEY phone (phone),
+            UNIQUE KEY staff_id (staff_id),
+            UNIQUE KEY aadhar_number (aadhar_number)
+        ) $charset_collate;";
+
+        // Create staff attendance table
+        $staff_attendance_table_name = $wpdb->prefix . 'pm_gym_staff_attendance';
+        $sql .= "CREATE TABLE IF NOT EXISTS $staff_attendance_table_name (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            staff_id varchar(10) NOT NULL,
+            shift varchar(20) NOT NULL DEFAULT 'morning',
+            check_in_time datetime NOT NULL,
+            check_out_time datetime DEFAULT NULL,
+            check_in_date date NOT NULL,
+            created_at datetime NOT NULL,
+            updated_at datetime DEFAULT NULL,
+            PRIMARY KEY  (id),
+            KEY staff_id (staff_id),
+            KEY check_in_time (check_in_time),
+            KEY check_in_date (check_in_date)
+        ) $charset_collate;";
+
         // // Create fees table
         // $fees_table_name = $wpdb->prefix . 'gym_fees';
         // $sql .= "CREATE TABLE IF NOT EXISTS $fees_table_name (

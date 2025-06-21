@@ -4,111 +4,64 @@ if (!defined('ABSPATH')) {
 }
 
 global $wpdb;
-$members_table = PM_GYM_MEMBERS_TABLE;
-
-// Handle check-out
-if (isset($_POST['check_out']) && isset($_POST['attendance_id'])) {
-    $attendance_id = intval($_POST['attendance_id']);
-    $check_out_time = current_time('mysql');
-
-    // Get check-in time
-    $check_in_time = get_post_meta($attendance_id, 'check_in_time', true);
-
-    // Calculate duration
-    $check_in = new DateTime($check_in_time);
-    $check_out = new DateTime($check_out_time);
-    $duration = $check_in->diff($check_out);
-    $duration_str = $duration->format('%H hours %i minutes');
-
-    // Update attendance record
-    update_post_meta($attendance_id, 'check_out_time', $check_out_time);
-    update_post_meta($attendance_id, 'duration', $duration_str);
-
-    add_settings_error(
-        'gym_attendance',
-        'checkout_success',
-        'Check-out recorded successfully.',
-        'success'
-    );
-}
+$staff_table = PM_GYM_STAFF_TABLE;
 
 // Get today's attendance records
 $selected_date = isset($_GET['attendance_date']) ? sanitize_text_field($_GET['attendance_date']) : current_time('Y-m-d');
-$member_id = isset($_GET['member_id']) ? sanitize_text_field($_GET['member_id']) : '';
-$time_period = isset($_GET['time_period']) ? sanitize_text_field($_GET['time_period']) : 'today';
+$selected_staff_id = isset($_GET['staff_id']) ? sanitize_text_field($_GET['staff_id']) : '';
+$date_range = isset($_GET['date_range']) ? sanitize_text_field($_GET['date_range']) : 'today';
 
-// Build the query with member ID filter
-$query = "SELECT a.*, 
-    CASE 
-        WHEN a.user_type = 'member' THEN m.name
-        WHEN a.user_type = 'guest' THEN g.name
-    END as name,
-    CASE 
-        WHEN a.user_type = 'member' THEN m.phone
-        WHEN a.user_type = 'guest' THEN g.phone
-    END as phone,
-    CASE 
-        WHEN a.user_type = 'member' THEN m.member_id
-        ELSE NULL
-    END as member_id_number,
-    CASE 
-        WHEN a.user_type = 'member' THEN m.status
-        ELSE NULL
-    END as status
-FROM " . PM_GYM_ATTENDANCE_TABLE . " a
-LEFT JOIN " . PM_GYM_MEMBERS_TABLE . " m ON a.user_id = m.id AND a.user_type = 'member'
-LEFT JOIN " . PM_GYM_GUEST_USERS_TABLE . " g ON a.user_id = g.id AND a.user_type = 'guest'
-WHERE 1=1";
+// Debug the selected date and staff ID
+error_log('Selected Date: ' . $selected_date);
+error_log('Selected Staff ID: ' . $selected_staff_id);
+error_log('Date Range: ' . $date_range);
 
-$query_params = array();
+// Get attendance records with error checking
+$query = $wpdb->prepare(
+    "SELECT a.*, s.name, s.phone, s.staff_id, s.status, s.role
+    FROM " . PM_GYM_STAFF_ATTENDANCE_TABLE . " a
+    LEFT JOIN " . PM_GYM_STAFF_TABLE . " s ON a.staff_id = s.id
+    WHERE 1=1
+    " . ($date_range === 'today' ? $wpdb->prepare("AND DATE(a.check_in_date) = %s", $selected_date) : "") . "
+    " . ($date_range === 'week' ? $wpdb->prepare("AND a.check_in_date >= DATE_SUB(%s, INTERVAL 7 DAY)", $selected_date) : "") . "
+    " . ($date_range === 'month' ? $wpdb->prepare("AND a.check_in_date >= DATE_SUB(%s, INTERVAL 30 DAY)", $selected_date) : "") . "
+    " . ($date_range === 'all' ? "" : "") . "
+    " . ($selected_staff_id ? $wpdb->prepare("AND s.staff_id = %s", $selected_staff_id) : "") . "
+    ORDER BY a.check_in_date DESC, a.shift ASC, a.check_in_time DESC"
+);
 
-// Add time period filter
-switch ($time_period) {
-    case '7days':
-        $query .= " AND a.check_in_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)";
-        break;
-    case '30days':
-        $query .= " AND a.check_in_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)";
-        break;
-    case 'all':
-        // No date filter for all time
-        break;
-    default: // today
-        $query .= " AND DATE(a.check_in_date) = %s";
-        $query_params[] = $selected_date;
-        break;
+// Debug the query
+error_log('Attendance Query: ' . $query);
+
+$today_attendance = $wpdb->get_results($query);
+
+// Debug the results
+error_log('Number of records found: ' . count($today_attendance));
+if ($wpdb->last_error) {
+    error_log('Database Error: ' . $wpdb->last_error);
 }
-
-if (!empty($member_id)) {
-    $query .= " AND (m.member_id LIKE %s OR m.member_id = %s)";
-    $query_params[] = '%' . $wpdb->esc_like($member_id) . '%';
-    $query_params[] = $member_id;
-}
-
-$query .= " ORDER BY a.check_in_date DESC, a.check_in_time DESC";
 
 // Debug output
 if ($wpdb->last_error) {
     error_log('Attendance Query Error: ' . $wpdb->last_error);
-    error_log('Query: ' . $query);
-    error_log('Parameters: ' . print_r($query_params, true));
 }
 
-$today_attendance = $wpdb->get_results(
-    $wpdb->prepare($query, $query_params)
-);
 
-// Get all active members
-$active_members = $wpdb->get_results(
-    "SELECT * FROM $members_table 
+
+// Get all active staff members for the dropdown
+$active_staff = $wpdb->get_results(
+    "SELECT id, staff_id, name FROM $staff_table 
     WHERE status = 'active' 
     ORDER BY name ASC"
 );
 
+// Get total active members
+$total_staff = $wpdb->get_var("SELECT COUNT(*) FROM " . PM_GYM_STAFF_TABLE . " WHERE status = 'active'");
+
 // Calculate statistics
-$total_members = count($active_members);
+$active_staff = count($active_staff);
 $today_count = count($today_attendance);
-$attendance_rate = $total_members > 0 ? round(($today_count / $total_members) * 100, 1) : 0;
+$attendance_rate = $total_staff > 0 ? round(($today_count / $total_staff) * 100, 1) : 0;
 ?>
 
 <div class="wrap">
@@ -120,55 +73,66 @@ $attendance_rate = $total_members > 0 ? round(($today_count / $total_members) * 
     <div class="date-selection">
         <form method="get" action="">
             <input type="hidden" name="page" value="<?php echo esc_attr($_GET['page']); ?>">
-            <div class="filter-options">
-                <label for="time_period">Time Period:</label>
-                <select name="time_period" id="time_period" class="time-period-select">
-                    <option value="today" <?php selected($time_period, 'today'); ?>>Today</option>
-                    <option value="7days" <?php selected($time_period, '7days'); ?>>Last 7 Days</option>
-                    <option value="30days" <?php selected($time_period, '30days'); ?>>Last 30 Days</option>
-                    <option value="all" <?php selected($time_period, 'all'); ?>>All Time</option>
-                </select>
-            </div>
-            <div class="date-filter" id="date-filter" style="<?php echo $time_period !== 'today' ? 'display: none;' : ''; ?>">
-                <label for="attendance_date">Select Date:</label>
-                <input type="date" id="attendance_date" name="attendance_date" value="<?php echo esc_attr($selected_date); ?>" max="<?php echo current_time('Y-m-d'); ?>">
-            </div>
-            <label for="member_id">Member ID:</label>
-            <input type="text" id="member_id" name="member_id" value="<?php echo esc_attr($member_id); ?>" placeholder="Search by Member ID">
+
+            <label for="date_range">Date Range:</label>
+            <select id="date_range" name="date_range">
+                <option value="today" <?php selected($date_range, 'today'); ?>>Today</option>
+                <option value="week" <?php selected($date_range, 'week'); ?>>Last 7 Days</option>
+                <option value="month" <?php selected($date_range, 'month'); ?>>Last 30 Days</option>
+                <option value="all" <?php selected($date_range, 'all'); ?>>All Time</option>
+            </select>
+
+            <label for="attendance_date">Select Date:</label>
+            <input type="date" id="attendance_date" name="attendance_date" value="<?php echo esc_attr($selected_date); ?>" max="<?php echo current_time('Y-m-d'); ?>">
+
+            <label for="staff_id">Staff:</label>
+            <select id="staff_id" name="staff_id">
+                <option value="">All Staff</option>
+                <?php
+                $active_staff = $wpdb->get_results(
+                    "SELECT id, staff_id, name FROM $staff_table 
+                    WHERE status = 'active' 
+                    ORDER BY name ASC"
+                );
+                foreach ($active_staff as $staff):
+                ?>
+                    <option value="<?php echo esc_attr($staff->staff_id); ?>" <?php selected($selected_staff_id, $staff->staff_id); ?>>
+                        <?php echo esc_html(PM_Gym_Helpers::format_staff_id($staff->staff_id) . ' - ' . $staff->name); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+
             <input type="submit" class="button" value="View Attendance">
             <button type="button" class="button export-csv-btn" data-date="<?php echo esc_attr($selected_date); ?>">Export to CSV</button>
-            <a href="<?php echo esc_url(remove_query_arg(['attendance_date', 'member_id', 'time_period'])); ?>" class="button reset-filter-btn">Reset Filters</a>
+            <a href="<?php echo esc_url(remove_query_arg(['attendance_date', 'staff_id', 'date_range'])); ?>" class="button" style="background-color: #dc3545; color: white; border-color: #dc3545; text-decoration: none;">Reset</a>
         </form>
     </div>
 
     <!-- Statistics -->
     <div class="attendance-stats">
         <div class="stat-box">
-            <h3>Attendance</h3>
+            <h3>Today's Attendance</h3>
             <p class="stat-number"><?php echo esc_html($today_count); ?></p>
         </div>
         <div class="stat-box">
-            <h3>Members</h3>
-            <p class="stat-number"><?php echo esc_html(count(array_filter($today_attendance, function ($record) {
-                                        return $record->user_type === 'member';
-                                    }))); ?></p>
-        </div>
-        <div class="stat-box">
-            <h3>Guests</h3>
-            <p class="stat-number"><?php echo esc_html(count(array_filter($today_attendance, function ($record) {
-                                        return $record->user_type === 'guest';
-                                    }))); ?></p>
-        </div>
-        <div class="stat-box">
-            <h3>Member Attendance Rate</h3>
+            <h3>Morning Shift</h3>
             <p class="stat-number"><?php
-                                    $member_attendance = count(array_filter($today_attendance, function ($record) {
-                                        return $record->user_type === 'member' && $record->status === 'active';
-                                    }));
-                                    $member_attendance_rate = $total_members > 0 ? round(($member_attendance / $total_members) * 100, 1) : 0;
-                                    echo esc_html($member_attendance_rate);
-                                    ?>%</p>
+                                    echo esc_html(count(array_filter($today_attendance, function ($record) {
+                                        return $record->shift === 'morning';
+                                    })));
+                                    ?></p>
         </div>
+        <div class="stat-box">
+            <h3>Evening Shift</h3>
+            <p class="stat-number">
+                <?php
+                echo esc_html(count(array_filter($today_attendance, function ($record) {
+                    return $record->shift === 'evening';
+                })));
+                ?>
+            </p>
+        </div>
+
     </div>
 
     <div class="pm-gym-attendance-container">
@@ -179,14 +143,14 @@ $attendance_rate = $total_members > 0 ? round(($today_count / $total_members) * 
             <table class="wp-list-table widefat fixed striped">
                 <thead>
                     <tr>
-                        <th>Member ID</th>
-                        <th>User Type</th>
+                        <th>Staff ID</th>
                         <th>Name</th>
+                        <th>Shift</th>
                         <th>Check-in <br> Date</th>
                         <th>Check-in <br> Time</th>
                         <th>Check-out <br> Time</th>
                         <th>Duration</th>
-                        <th>Member <br> Status</th>
+                        <th>Staff <br> Status</th>
                         <th>Attendance <br> Status</th>
                         <th>Actions</th>
                     </tr>
@@ -194,13 +158,13 @@ $attendance_rate = $total_members > 0 ? round(($today_count / $total_members) * 
                 <tbody>
                     <?php foreach ($today_attendance as $record): ?>
                         <tr>
-                            <td><?php echo $record->user_type === 'member' ? esc_html(PM_Gym_Helpers::format_member_id($record->member_id_number)) : '-'; ?></td>
-                            <td><?php echo esc_html($record->user_type); ?></td>
+                            <td><?php echo esc_html(PM_Gym_Helpers::format_staff_id($record->staff_id)); ?></td>
                             <td><?php echo esc_html($record->name); ?><br><small><?php echo esc_html($record->phone); ?></small></td>
-                            <td><?php echo esc_html(date('d M, Y', strtotime($record->check_in_date))); ?></td>
+                            <td><?php echo esc_html(ucfirst($record->shift)); ?></td>
+                            <td><?php echo esc_html(date('d M Y', strtotime($record->check_in_date))); ?></td>
                             <td><?php echo esc_html(date('h:i A', strtotime($record->check_in_time))); ?></td>
                             <td>
-                                <?php if (!empty($record->check_out_time)): ?>
+                                <?php if (!empty($record->check_out_time) && $record->check_out_time != '00:00:00'): ?>
                                     <?php echo esc_html(date('h:i A', strtotime($record->check_out_time))); ?>
                                 <?php else: ?>
                                     -
@@ -214,21 +178,17 @@ $attendance_rate = $total_members > 0 ? round(($today_count / $total_members) * 
                                 <?php endif; ?>
                             </td>
                             <td>
-                                <?php if ($record->user_type === 'member'): ?>
-                                    <span class="status-<?php echo esc_attr($record->status); ?>"><?php echo esc_html(ucfirst($record->status)); ?></span>
-                                <?php else: ?>
-                                    -
-                                <?php endif; ?>
+                                <span class="status-<?php echo esc_attr($record->status); ?>"><?php echo esc_html(ucfirst($record->status)); ?></span>
                             </td>
                             <td>
-                                <?php if (!empty($record->check_out_time)): ?>
+                                <?php if (!empty($record->check_out_time) && $record->check_out_time != '00:00:00'): ?>
                                     <span class="status-checked-out">Checked Out</span>
                                 <?php else: ?>
                                     <span class="status-checked-in">Checked In</span>
                                 <?php endif; ?>
                             </td>
                             <td class="actions-column">
-                                <?php if (empty($record->check_out_time)): ?>
+                                <?php if (empty($record->check_out_time) || $record->check_out_time == '00:00:00'): ?>
                                     <button type="button" class="button check-out-btn" data-attendance-id="<?php echo esc_attr($record->id); ?>">Check Out</button>
                                 <?php endif; ?>
                                 <br>
@@ -245,18 +205,6 @@ $attendance_rate = $total_members > 0 ? round(($today_count / $total_members) * 
 <style>
     .pm-gym-attendance-container {
         margin-top: 20px;
-    }
-
-    /* Reset Filter Button Styles */
-    .reset-filter-btn {
-        background-color: #dc3545 !important;
-        color: white !important;
-        border-color: #dc3545 !important;
-    }
-
-    .reset-filter-btn:hover {
-        background-color: #c82333 !important;
-        border-color: #bd2130 !important;
     }
 
     /* Datepicker Styles */
@@ -436,22 +384,6 @@ $attendance_rate = $total_members > 0 ? round(($today_count / $total_members) * 
         margin-right: 5px;
         margin-bottom: 2px;
     }
-
-    .filter-options {
-        margin-bottom: 10px;
-    }
-
-    .time-period-select {
-        padding: 5px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        margin-right: 10px;
-    }
-
-    .date-filter {
-        display: inline-block;
-        margin-right: 10px;
-    }
 </style>
 
 <script>
@@ -470,6 +402,21 @@ $attendance_rate = $total_members > 0 ? round(($today_count / $total_members) * 
                 });
             }
         });
+
+        // Handle date range change
+        $('#date_range').on('change', function() {
+            var dateRange = $(this).val();
+            if (dateRange === 'all') {
+                $('#attendance_date').prop('disabled', true);
+            } else {
+                $('#attendance_date').prop('disabled', false);
+            }
+        });
+
+        // Initial state
+        if ($('#date_range').val() === 'all') {
+            $('#attendance_date').prop('disabled', true);
+        }
 
         // Handle date change
         $('#attendance_date').on('change', function() {
@@ -491,7 +438,7 @@ $attendance_rate = $total_members > 0 ? round(($today_count / $total_members) * 
                 url: '<?php echo admin_url('admin-ajax.php'); ?>',
                 type: 'POST',
                 data: {
-                    action: 'mark_check_out_attendance',
+                    action: 'mark_staff_check_out_attendance',
                     attendance_id: attendanceId
                 },
                 success: function(response) {
@@ -516,7 +463,7 @@ $attendance_rate = $total_members > 0 ? round(($today_count / $total_members) * 
                 url: pm_gym_ajax.ajax_url,
                 type: 'POST',
                 data: {
-                    action: 'delete_attendance',
+                    action: 'delete_staff_attendance',
                     id: attendanceId
                 },
                 success: function(response) {
@@ -537,7 +484,6 @@ $attendance_rate = $total_members > 0 ? round(($today_count / $total_members) * 
 
         // Handle CSV Export
         $('.export-csv-btn').on('click', function() {
-            var date = $(this).data('date');
             var $exportBtn = $(this);
 
             // Show loading state
@@ -547,14 +493,14 @@ $attendance_rate = $total_members > 0 ? round(($today_count / $total_members) * 
                 url: pm_gym_ajax.ajax_url,
                 type: 'POST',
                 data: {
-                    action: 'export_attendance'
+                    action: 'export_staff_attendance',
                 },
                 success: function(response) {
                     if (response.success) {
                         // Create a temporary link to download the file
                         var link = document.createElement('a');
                         link.href = response.data.file_url;
-                        link.download = 'attendance-' + date + '.csv';
+                        link.download = 'staff-attendance-' + new Date().toISOString().split('T')[0] + '.csv';
                         document.body.appendChild(link);
                         link.click();
                         document.body.removeChild(link);
@@ -587,14 +533,5 @@ $attendance_rate = $total_members > 0 ? round(($today_count / $total_members) * 
                 });
             }, 3000);
         }
-
-        // Handle time period change
-        $('#time_period').on('change', function() {
-            if ($(this).val() === 'today') {
-                $('#date-filter').show();
-            } else {
-                $('#date-filter').hide();
-            }
-        });
     });
 </script>

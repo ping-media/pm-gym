@@ -8,12 +8,12 @@ global $wpdb;
 $members_table = PM_GYM_MEMBERS_TABLE;
 
 // Handle member deletion
-if (isset($_POST['delete_member']) && isset($_POST['member_id'])) {
-    $member_id = intval($_POST['member_id']);
+if (isset($_POST['delete_member']) && isset($_POST['record_id'])) {
+    $record_id = intval($_POST['record_id']);
 
     $result = $wpdb->delete(
         $members_table,
-        array('id' => $member_id),
+        array('id' => $record_id),
         array('%d')
     );
 
@@ -187,7 +187,7 @@ if (empty($membership_types) || is_wp_error($membership_types)) {
                             Name<?php echo esc_html($name_sort_indicator); ?>
                         </a>
                     </th>
-                    <th>Phone</th>
+                    <th>Trainer</th>
                     <th>
                         <?php
                         $membership_sort_order = ($orderby === 'membership_type' && $order === 'ASC') ? 'DESC' : 'ASC';
@@ -232,6 +232,19 @@ if (empty($membership_types) || is_wp_error($membership_types)) {
                     </th>
                     <th>
                         <?php
+                        $renewal_sort_order = ($orderby === 'renewal_date' && $order === 'ASC') ? 'DESC' : 'ASC';
+                        $renewal_sort_url = add_query_arg(array('orderby' => 'renewal_date', 'order' => $renewal_sort_order), $current_url);
+                        $renewal_sort_indicator = '';
+                        if ($orderby === 'renewal_date') {
+                            $renewal_sort_indicator = $order === 'ASC' ? ' ▲' : ' ▼';
+                        }
+                        ?>
+                        <a href="<?php echo esc_url($renewal_sort_url); ?>" class="sortable">
+                            Renewal Date<?php echo esc_html($renewal_sort_indicator); ?>
+                        </a>
+                    </th>
+                    <th>
+                        <?php
                         $status_sort_order = ($orderby === 'status' && $order === 'ASC') ? 'DESC' : 'ASC';
                         $status_sort_url = add_query_arg(array('orderby' => 'status', 'order' => $status_sort_order), $current_url);
                         $status_sort_indicator = '';
@@ -256,14 +269,26 @@ if (empty($membership_types) || is_wp_error($membership_types)) {
                         $membership_type_name = $member->membership_type;
 
                         $formatted_id = PM_Gym_Helpers::format_member_id($member->member_id);
+                        $trainer_id = PM_Gym_Helpers::get_member_meta($member->id, 'trainer_id', true);
+                        $trainer_name = '--';
+                        if (!empty($trainer_id)) {
+                            $trainer_name = PM_Gym_Helpers::get_staff_name($trainer_id);
+                        }
                 ?>
                         <tr>
                             <td><?php echo esc_html($formatted_id); ?></td>
-                            <td class="text-capitalize"><?php echo esc_html($member->name); ?></td>
-                            <td><?php echo esc_html($member->phone); ?></td>
+                            <td class="text-capitalize">
+                                <?php echo esc_html($member->name); ?>
+                                <br>
+                                <small class="text-muted">
+                                    <?php echo esc_html($member->phone); ?>
+                                </small>
+                            </td>
+                            <td><?php echo esc_html($trainer_name); ?></td>
                             <td><?php echo esc_html(PM_Gym_Helpers::format_membership_type($member->membership_type)); ?></td>
                             <td><?php echo esc_html(PM_Gym_Helpers::format_date($member->join_date)); ?></td>
                             <td><?php echo empty($member->expiry_date) ? '--' : esc_html(PM_Gym_Helpers::format_date($member->expiry_date)); ?></td>
+                            <td><?php echo empty($member->renewal_date) ? '--' : esc_html(PM_Gym_Helpers::format_date($member->renewal_date)); ?></td>
                             <td>
                                 <span class="status-badge status-<?php echo esc_attr($member->status); ?>">
                                     <?php echo esc_html(ucfirst($member->status)); ?>
@@ -298,6 +323,13 @@ if (empty($membership_types) || is_wp_error($membership_types)) {
             <div class="row">
                 <div class="col-4">
                     <div class="form-field">
+                        <label for="member_id">Member ID <span class="required">*</span></label>
+                        <input type="number" name="member_id" id="member_id" required min="1" max="9999" oninput="javascript: if (this.value.length > 4) this.value = this.value.slice(0,4);">
+                        <div id="member-id-error" class="field-error"></div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="form-field">
                         <label for="member_name">Name <span class="required">*</span></label>
                         <input type="text" name="member_name" id="member_name" required>
                     </div>
@@ -319,13 +351,7 @@ if (empty($membership_types) || is_wp_error($membership_types)) {
             </div>
 
             <div class="row">
-                <div class="col-4">
-                    <div class="form-field">
-                        <label for="member_id">Member ID <span class="required">*</span></label>
-                        <input type="number" name="member_id" id="member_id" required min="1" max="9999" oninput="javascript: if (this.value.length > 4) this.value = this.value.slice(0,4);">
-                        <div id="member-id-error" class="field-error"></div>
-                    </div>
-                </div>
+
                 <div class="col-4">
                     <div class="form-field">
                         <label for="membership_type">Membership Type</label>
@@ -341,8 +367,23 @@ if (empty($membership_types) || is_wp_error($membership_types)) {
                 </div>
                 <div class="col-4">
                     <div class="form-field">
-                        <label for="expiry_date">Expiry Date</label>
-                        <input type="text" name="expiry_date" id="expiry_date" readonly>
+                        <label for="trainer_id">Assigned Trainer</label>
+                        <select name="trainer_id" id="trainer_id">
+                            <option value="">Select Trainer</option>
+                            <?php
+                            global $wpdb;
+                            $trainers = $wpdb->get_results("SELECT id, staff_id, name FROM " . PM_GYM_STAFF_TABLE . " WHERE role = 'trainer' AND status = 'active' ORDER BY name ASC");
+                            foreach ($trainers as $trainer) {
+                                echo '<option value="' . esc_attr($trainer->id) . '">' . esc_html($trainer->name) . ' (ID: ' . esc_html(PM_Gym_Helpers::format_staff_id($trainer->staff_id)) . ')</option>';
+                            }
+                            ?>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="form-field">
+                        <label for="expiry_date">Expiry Date <span class="required">*</span></label></label>
+                        <input type="date" name="expiry_date" id="expiry_date" required>
                     </div>
                 </div>
             </div>
@@ -350,7 +391,13 @@ if (empty($membership_types) || is_wp_error($membership_types)) {
             <div class="row">
                 <div class="col-4">
                     <div class="form-field">
-                        <label for="aadhar_number">Aadhar Card Number <span class="required">*</span></label>
+                        <label for="renewal_date">Renewal Date</label>
+                        <input type="date" name="renewal_date" id="renewal_date">
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="form-field">
+                        <label for="aadhar_number">Aadhar Card Number</label>
                         <input type="text" name="aadhar_number" id="aadhar_number" maxlength="12" pattern="[0-9]{12}" title="Please enter a valid 12-digit Aadhar number" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0,12)">
                         <div id="aadhar-error" class="field-error"></div>
                     </div>
@@ -368,7 +415,7 @@ if (empty($membership_types) || is_wp_error($membership_types)) {
                 </div>
                 <div class="col-4">
                     <div class="form-field">
-                        <label for="dob">Date of Birth <span class="required">*</span></label>
+                        <label for="dob">Date of Birth </label>
                         <input type="date" name="dob" id="dob">
                     </div>
                 </div>
@@ -631,6 +678,19 @@ if (empty($membership_types) || is_wp_error($membership_types)) {
 
 <script>
     jQuery(document).ready(function($) {
+
+        $('#renewal_date').datepicker({
+            dateFormat: 'yy-mm-dd',
+            changeMonth: true,
+            changeYear: true,
+        });
+        $('#dob').datepicker({
+            dateFormat: 'yy-mm-dd',
+            changeMonth: true,
+            changeYear: true,
+        });
+
+
         // Modal handling
         $('#add-new-member').on('click', function(e) {
             e.preventDefault();
@@ -680,6 +740,8 @@ if (empty($membership_types) || is_wp_error($membership_types)) {
             var gender = $('#gender').val();
             var email = $('#email').val();
             var expiry_date = $('#expiry_date').val();
+            var renewal_date = $('#renewal_date').val();
+            var trainer_id = $('#trainer_id').val();
 
             // Validate all required fields
             var isValid = true;
@@ -736,7 +798,9 @@ if (empty($membership_types) || is_wp_error($membership_types)) {
                 dob: dob,
                 gender: gender,
                 email: email,
-                expiry_date: expiry_date
+                expiry_date: expiry_date,
+                renewal_date: renewal_date,
+                trainer_id: trainer_id
             };
 
             // Send AJAX request
@@ -820,6 +884,8 @@ if (empty($membership_types) || is_wp_error($membership_types)) {
                         $('#email').val(data.email);
                         $('#member_id').val(data.member_id);
                         $('#expiry_date').val(data.expiry_date);
+                        $('#trainer_id').val(data.trainer_id);
+                        $('#trainer_name').val(data.trainer_name);
                         if (data.signature) {
                             try {
                                 // Try to clean the signature data if it's not properly formatted
@@ -880,7 +946,7 @@ if (empty($membership_types) || is_wp_error($membership_types)) {
         $('.delete-member').on('click', function(e) {
             e.preventDefault();
             if (confirm('Are you sure you want to delete this member?')) {
-                var memberId = $(this).data('id');
+                var recordId = $(this).data('id');
 
                 var form = $('<form>', {
                     'method': 'post',
@@ -892,8 +958,8 @@ if (empty($membership_types) || is_wp_error($membership_types)) {
                         'type': 'hidden'
                     }),
                     $('<input>', {
-                        'name': 'member_id',
-                        'value': memberId,
+                        'name': 'record_id',
+                        'value': recordId,
                         'type': 'hidden'
                     })
                 );
@@ -1035,71 +1101,6 @@ if (empty($membership_types) || is_wp_error($membership_types)) {
                 link.click();
                 document.body.removeChild(link);
             }
-        });
-
-        // Handle bulk upload form submission
-        $('#bulk-upload-form').on('submit', function(e) {
-            e.preventDefault();
-
-            var formData = new FormData(this);
-            formData.append('action', 'bulk_upload_members');
-
-            // Show progress bar
-            $('#upload-progress').show();
-            $('.progress-bar-fill').css('width', '0%');
-            $('.progress-status').text('Processing...');
-
-            $.ajax({
-                url: pm_gym_ajax.ajax_url,
-                type: 'POST',
-                data: formData,
-                processData: false,
-                contentType: false,
-                xhr: function() {
-                    var xhr = new window.XMLHttpRequest();
-                    xhr.upload.addEventListener("progress", function(evt) {
-                        if (evt.lengthComputable) {
-                            var percentComplete = evt.loaded / evt.total;
-                            percentComplete = parseInt(percentComplete * 100);
-                            $('.progress-bar-fill').css('width', percentComplete + '%');
-                        }
-                    }, false);
-                    return xhr;
-                },
-                success: function(response) {
-                    if (response.success) {
-                        var message = response.data.message;
-                        if (response.data.errors && response.data.errors.length > 0) {
-                            message += '<br><br><strong>Errors encountered:</strong><br>';
-                            message += response.data.errors.slice(0, 10).join('<br>'); // Show first 10 errors
-                            if (response.data.errors.length > 10) {
-                                message += '<br>... and ' + (response.data.errors.length - 10) + ' more errors.';
-                            }
-                        }
-                        showDetailedNotification(message, 'success');
-                        $('#bulk-upload-modal').hide();
-                        setTimeout(function() {
-                            // location.reload();
-                        }, 3000);
-                    } else {
-                        var message = response.data.message || 'Error uploading file';
-                        if (response.data.errors && response.data.errors.length > 0) {
-                            message += '<br><br><strong>Errors encountered:</strong><br>';
-                            message += response.data.errors.slice(0, 10).join('<br>'); // Show first 10 errors
-                            if (response.data.errors.length > 10) {
-                                message += '<br>... and ' + (response.data.errors.length - 10) + ' more errors.';
-                            }
-                        }
-                        showDetailedNotification(message, 'error');
-                    }
-                },
-                error: function(xhr, status, error) {
-                    showNotification('Error uploading file: ' + error, 'error');
-                },
-                complete: function() {
-                    $('#upload-progress').hide();
-                }
-            });
         });
 
         // Export members to CSV

@@ -19,6 +19,19 @@ class PM_Gym_Helpers
     }
 
     /**
+     * Format staff ID with leading zeros and hash prefix
+     * 
+     * @param int $id The staff ID to format
+     * @param int $length The desired length of the ID (default: 4)
+     * @param string $prefix The prefix to add (default: '#')
+     * @return string Formatted staff ID
+     */
+    public static function format_staff_id($id, $length = 4, $prefix = '')
+    {
+        return $prefix . str_pad($id, $length, '0', STR_PAD_LEFT);
+    }
+
+    /**
      * Parse formatted member ID to get the numeric ID
      * 
      * @param string $formatted_id The formatted member ID (e.g., "#0001")
@@ -90,6 +103,10 @@ class PM_Gym_Helpers
      */
     public static function calculate_duration($start_time, $end_time)
     {
+        if ($start_time == '00:00:00' || $end_time == '00:00:00') {
+            return '--';
+        }
+
         $start = strtotime($start_time);
         $end = strtotime($end_time);
         $diff = $end - $start;
@@ -161,7 +178,7 @@ class PM_Gym_Helpers
     public static function get_member_by_phone($phone)
     {
         global $wpdb;
-        $members_table = $wpdb->prefix . 'members';
+        $members_table = PM_GYM_MEMBERS_TABLE;
 
         return $wpdb->get_row(
             $wpdb->prepare("SELECT * FROM $members_table WHERE phone = %s", $phone)
@@ -177,7 +194,7 @@ class PM_Gym_Helpers
     public static function get_members($args = array())
     {
         global $wpdb;
-        $members_table = $wpdb->prefix . 'members';
+        $members_table = PM_GYM_MEMBERS_TABLE;
 
         $defaults = array(
             'status' => '',
@@ -244,7 +261,7 @@ class PM_Gym_Helpers
     public static function count_members($args = array())
     {
         global $wpdb;
-        $members_table = $wpdb->prefix . 'members';
+        $members_table = PM_GYM_MEMBERS_TABLE;
 
         $defaults = array(
             'status' => '',
@@ -319,5 +336,212 @@ class PM_Gym_Helpers
 
         // If no members exist yet, start with 1, otherwise increment the highest ID
         return $highest_member_id ? intval($highest_member_id) + 1 : 1;
+    }
+
+    /**
+     * Get the next available staff ID
+     * 
+     * @return int The next available staff ID
+     */
+    public static function get_next_staff_id()
+    {
+        global $wpdb;
+        $staff_table = PM_GYM_STAFF_TABLE;
+
+        // Get the highest staff_id
+        $highest_staff_id = $wpdb->get_var("SELECT MAX(staff_id) FROM $staff_table");
+
+        // If no members exist yet, start with 1, otherwise increment the highest ID
+        return $highest_staff_id ? intval($highest_staff_id) + 1 : 1;
+    }
+
+    /**
+     * Add member meta data
+     * 
+     * @param int $member_id Member ID
+     * @param string $meta_key Meta key
+     * @param mixed $meta_value Meta value
+     * @param bool $unique Whether the meta key should be unique for the member
+     * @return int|false Meta ID on success, false on failure
+     */
+    public static function add_member_meta($member_id, $meta_key, $meta_value, $unique = false)
+    {
+        global $wpdb;
+        $member_meta_table = PM_GYM_MEMBER_META_TABLE;
+
+        if (empty($meta_key) || empty($meta_value)) {
+            return false;
+        }
+
+        // Check if meta key already exists and unique is true
+        if ($unique) {
+            $exists = $wpdb->get_var($wpdb->prepare(
+                "SELECT meta_id FROM $member_meta_table WHERE member_id = %d AND meta_key = %s",
+                $member_id,
+                $meta_key
+            ));
+            if ($exists) {
+                return false;
+            }
+        }
+
+        // Insert new meta
+        $result = $wpdb->insert(
+            $member_meta_table,
+            array(
+                'member_id' => $member_id,
+                'meta_key' => $meta_key,
+                'meta_value' => maybe_serialize($meta_value)
+            ),
+            array('%d', '%s', '%s')
+        );
+
+        return $result ? $wpdb->insert_id : false;
+    }
+
+    /**
+     * Update member meta data
+     * 
+     * @param int $member_id Member ID
+     * @param string $meta_key Meta key
+     * @param mixed $meta_value Meta value
+     * @param mixed $prev_value Previous value to update (optional)
+     * @return bool True on success, false on failure
+     */
+    public static function update_member_meta($member_id, $meta_key, $meta_value, $prev_value = '')
+    {
+        global $wpdb;
+        $member_meta_table = PM_GYM_MEMBER_META_TABLE;
+
+        // Check if meta exists
+        $meta_id = $wpdb->get_var($wpdb->prepare(
+            "SELECT meta_id FROM $member_meta_table WHERE member_id = %d AND meta_key = %s",
+            $member_id,
+            $meta_key
+        ));
+
+        if ($meta_id) {
+            // Update existing meta
+            if (empty($prev_value)) {
+                $result = $wpdb->update(
+                    $member_meta_table,
+                    array('meta_value' => maybe_serialize($meta_value)),
+                    array('meta_id' => $meta_id),
+                    array('%s'),
+                    array('%d')
+                );
+            } else {
+                $result = $wpdb->update(
+                    $member_meta_table,
+                    array('meta_value' => maybe_serialize($meta_value)),
+                    array(
+                        'meta_id' => $meta_id,
+                        'meta_value' => maybe_serialize($prev_value)
+                    ),
+                    array('%s'),
+                    array('%d', '%s')
+                );
+            }
+        } else {
+            // Add new meta if it doesn't exist
+            $result = self::add_member_meta($member_id, $meta_key, $meta_value);
+        }
+
+        return $result !== false;
+    }
+
+    /**
+     * Get member meta data
+     * 
+     * @param int $member_id Member ID
+     * @param string $meta_key Meta key (optional)
+     * @param bool $single Whether to return a single value (optional)
+     * @return mixed Meta value(s)
+     */
+    public static function get_member_meta($member_id, $meta_key = '', $single = false)
+    {
+        global $wpdb;
+        $member_meta_table = PM_GYM_MEMBER_META_TABLE;
+
+        if (empty($meta_key)) {
+            // Get all meta for the member
+            $results = $wpdb->get_results($wpdb->prepare(
+                "SELECT meta_key, meta_value FROM $member_meta_table WHERE member_id = %d",
+                $member_id
+            ));
+
+            $meta = array();
+            if ($results) {
+                foreach ($results as $row) {
+                    $meta[$row->meta_key] = maybe_unserialize($row->meta_value);
+                }
+            }
+            return $meta;
+        }
+
+        // Get specific meta key
+        $meta_value = $wpdb->get_var($wpdb->prepare(
+            "SELECT meta_value FROM $member_meta_table WHERE member_id = %d AND meta_key = %s",
+            $member_id,
+            $meta_key
+        ));
+
+        if ($meta_value) {
+            $meta_value = maybe_unserialize($meta_value);
+            return $single ? $meta_value : array($meta_value);
+        }
+
+        return $single ? '' : array();
+    }
+
+    /**
+     * Delete member meta data
+     * 
+     * @param int $member_id Member ID
+     * @param string $meta_key Meta key (optional)
+     * @param mixed $meta_value Meta value to delete (optional)
+     * @return bool True on success, false on failure
+     */
+    public static function delete_member_meta($member_id, $meta_key = '', $meta_value = '')
+    {
+        global $wpdb;
+        $member_meta_table = PM_GYM_MEMBER_META_TABLE;
+
+        $where = array('member_id = %d');
+        $prepare_args = array($member_id);
+
+        if (!empty($meta_key)) {
+            $where[] = 'meta_key = %s';
+            $prepare_args[] = $meta_key;
+        }
+
+        if (!empty($meta_value)) {
+            $where[] = 'meta_value = %s';
+            $prepare_args[] = maybe_serialize($meta_value);
+        }
+
+        $query = "DELETE FROM $member_meta_table WHERE " . implode(' AND ', $where);
+        $result = $wpdb->query($wpdb->prepare($query, $prepare_args));
+
+        return $result !== false;
+    }
+
+    /**
+     * Get staff name by ID
+     * 
+     * @param int $trainer_id Staff ID
+     * @return string|null Staff name or null if not found
+     */
+    public static function get_staff_name($trainer_id)
+    {
+        global $wpdb;
+        $staff_table = PM_GYM_STAFF_TABLE;
+
+        $name = $wpdb->get_var($wpdb->prepare(
+            "SELECT name FROM $staff_table WHERE id = %d",
+            $trainer_id
+        ));
+
+        return $name ?: null;
     }
 }

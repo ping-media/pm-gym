@@ -12,10 +12,18 @@ class PM_Gym
     public function __construct()
     {
         $this->plugin_name = 'pm-gym';
-        $this->version = '1.0.0';
+        $this->version = '1.2.0';
         $this->load_dependencies();
         $this->define_admin_hooks();
         $this->define_public_hooks();
+
+        // Hide admin bar for all users everywhere except user ID 1
+        add_action('init', function () {
+            if (get_current_user_id() !== 1) {
+                add_filter('show_admin_bar', '__return_false');
+                add_filter('wp_admin_bar_class', '__return_false');
+            }
+        });
     }
 
     private function load_dependencies()
@@ -26,6 +34,8 @@ class PM_Gym
         require_once plugin_dir_path(dirname(__FILE__)) . 'includes/class-pm-gym-helpers.php';
         require_once plugin_dir_path(dirname(__FILE__)) . 'admin/class-pm-gym-admin.php';
         require_once plugin_dir_path(dirname(__FILE__)) . 'includes/class-pm-gym-shortcodes.php';
+        require_once plugin_dir_path(dirname(__FILE__)) . 'includes/class-pm-gym-staff-attendance.php';
+        require_once plugin_dir_path(dirname(__FILE__)) . 'includes/class-pm-gym-attendance.php';
 
         $this->loader = new PM_Gym_Loader();
     }
@@ -33,6 +43,8 @@ class PM_Gym
     private function define_admin_hooks()
     {
         $plugin_admin = new PM_Gym_Admin($this->get_plugin_name(), $this->get_version());
+        $staff_attendance = new PM_Gym_Staff_Attendance($this->get_plugin_name(), $this->get_version());
+        $member_attendance = new PM_Gym_Attendance($this->get_plugin_name(), $this->get_version());
 
         $this->loader->add_action('admin_enqueue_scripts', $plugin_admin, 'enqueue_styles');
         $this->loader->add_action('admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts');
@@ -46,8 +58,7 @@ class PM_Gym
         // Initialize shortcodes
         add_action('init', array($plugin_shortcodes, 'init'));
 
-        // Add shortcode directly
-        add_shortcode('attendance_form_shortcode', array($plugin_shortcodes, 'attendance_form_shortcode'));
+        // Add alternative shortcode name
         add_shortcode('pm_gym_attendance', array($plugin_shortcodes, 'attendance_form_shortcode'));
 
         // Enqueue public scripts and styles

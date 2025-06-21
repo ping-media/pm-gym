@@ -13,24 +13,21 @@ class PM_Gym_Admin
         $this->plugin_name = $plugin_name;
         $this->version = $version;
 
-        // Add AJAX handlers
+        // Add AJAX handlers for members
         add_action('wp_ajax_get_member_data', array($this, 'get_member_data'));
         add_action('wp_ajax_save_gym_member', array($this, 'save_gym_member'));
         add_action('wp_ajax_delete_member', array($this, 'delete_member'));
-        add_action('wp_ajax_bulk_upload_members', array($this, 'bulk_upload_members'));
         add_action('wp_ajax_get_next_member_id', array($this, 'get_next_member_id'));
         add_action('wp_ajax_export_members_csv', array($this, 'export_members_csv'));
-        add_action('wp_ajax_export_attendance_csv', array($this, 'export_attendance_csv'));
+
 
         // Add AJAX handler for front-end member details
         add_action('wp_ajax_get_member_details_for_front_end', array($this, 'get_member_details_for_front_end'));
         add_action('wp_ajax_nopriv_get_member_details_for_front_end', array($this, 'get_member_details_for_front_end'));
 
-        add_action('wp_ajax_nopriv_mark_attendance', array($this, 'mark_attendance'));
-        add_action('wp_ajax_mark_attendance', array($this, 'mark_attendance'));
-
         add_action('wp_ajax_nopriv_mark_check_out_attendance', array($this, 'mark_check_out_attendance'));
         add_action('wp_ajax_mark_check_out_attendance', array($this, 'mark_check_out_attendance'));
+
 
         // Add menu hiding functionality
         add_action('admin_menu', array($this, 'hide_admin_menus'), 999);
@@ -44,6 +41,19 @@ class PM_Gym_Admin
 
         // Add new AJAX handler for converting a guest to a member
         add_action('wp_ajax_convert_guest_to_member', array($this, 'convert_guest_to_member'));
+
+        // Add AJAX handlers for staff management
+        add_action('wp_ajax_save_gym_staff', array($this, 'save_gym_staff'));
+        add_action('wp_ajax_get_staff_data', array($this, 'get_staff_data'));
+        add_action('wp_ajax_nopriv_get_staff_data', array($this, 'get_staff_data'));
+        add_action('wp_ajax_delete_staff', array($this, 'delete_staff'));
+        add_action('wp_ajax_get_next_staff_id', array($this, 'get_next_staff_id'));
+
+        // Add new AJAX handler for getting member's assigned trainer
+        add_action('wp_ajax_get_member_trainer', array($this, 'get_staff_data'));
+
+        // Add new AJAX handler for bulk uploading members
+        add_action('wp_ajax_bulk_upload_members', array($this, 'bulk_upload_members'));
     }
 
     public function enqueue_styles()
@@ -64,7 +74,11 @@ class PM_Gym_Admin
         wp_enqueue_script('jquery-ui-datepicker');
         wp_enqueue_style('jquery-ui', 'https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css');
 
-        wp_enqueue_script($this->plugin_name, plugin_dir_url(__FILE__) . 'js/pm-gym-admin.js', array('jquery'), $this->version, false);
+        // Enqueue Flatpickr
+        wp_enqueue_style('flatpickr', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css');
+        wp_enqueue_script('flatpickr', 'https://cdn.jsdelivr.net/npm/flatpickr', array(), null, true);
+
+        wp_enqueue_script($this->plugin_name, plugin_dir_url(__FILE__) . 'js/pm-gym-admin.js', array('jquery', 'flatpickr'), $this->version, false);
 
         // Localize the script with new data
         wp_localize_script($this->plugin_name, 'pm_gym_ajax', array(
@@ -81,34 +95,57 @@ class PM_Gym_Admin
             'pm-gym',
             array($this, 'display_plugin_admin_page'),
             'dashicons-universal-access',
-            6
+            2
         );
 
-        add_submenu_page(
-            'pm-gym',
+        add_menu_page(
             'Members',
             'Members',
             'manage_options',
             'pm-gym-members',
-            array($this, 'display_members_page')
+            array($this, 'display_members_page'),
+            'dashicons-groups',
+            2
         );
 
-        add_submenu_page(
-            'pm-gym',
+        add_menu_page(
             'Guests',
             'Guests',
             'manage_options',
             'pm-gym-guests',
-            array($this, 'display_guests_page')
+            array($this, 'display_guests_page'),
+            'dashicons-visibility',
+            3
         );
 
-        add_submenu_page(
-            'pm-gym',
-            'Attendance',
-            'Attendance',
+        add_menu_page(
+            'Member Attendance',
+            'Member Attendance',
             'manage_options',
             'pm-gym-attendance',
-            array($this, 'display_attendance_page')
+            array($this, 'display_attendance_page'),
+            'dashicons-calendar-alt',
+            3
+        );
+
+        add_menu_page(
+            'Staff',
+            'Staff',
+            'manage_options',
+            'pm-gym-staff',
+            array($this, 'display_staff_page'),
+            'dashicons-businessperson',
+            3
+        );
+
+        add_menu_page(
+            'Staff Attendance',
+            'Staff Attendance',
+            'manage_options',
+            'pm-gym-staff-attendance',
+            array($this, 'display_staff_attendance_page'),
+            'dashicons-calendar-alt',
+            3
         );
 
         // add_submenu_page(
@@ -141,6 +178,7 @@ class PM_Gym_Admin
             remove_menu_page('profile.php');                // Profile
             remove_menu_page('oceanwp');
             remove_menu_page('ai1wm_export');
+            remove_menu_page('options-general.php?page=updraftplus');
         }
     }
 
@@ -185,9 +223,14 @@ class PM_Gym_Admin
         require_once plugin_dir_path(__FILE__) . 'partials/pm-gym-attendance-display.php';
     }
 
-    public function display_guest_attendance_page()
+    public function display_staff_page()
     {
-        require_once plugin_dir_path(__FILE__) . 'partials/pm-gym-guests-display.php';
+        require_once plugin_dir_path(__FILE__) . 'partials/pm-gym-staff-display.php';
+    }
+
+    public function display_staff_attendance_page()
+    {
+        require_once plugin_dir_path(__FILE__) . 'partials/pm-gym-staff-attendance-display.php';
     }
 
     public function display_fees_page()
@@ -214,6 +257,8 @@ class PM_Gym_Admin
             );
 
             if ($member) {
+                $trainer_id = PM_Gym_Helpers::get_member_meta($member->id, 'trainer_id', true);
+                $trainer_name = PM_Gym_Helpers::get_staff_name($trainer_id) ?? '';
                 $data = array(
                     'ID' => $member->id,
                     'title' => $member->name,
@@ -227,7 +272,9 @@ class PM_Gym_Admin
                     'gender' => $member->gender,
                     'dob' => $member->dob,
                     'expiry_date' => $member->expiry_date,
-                    'member_id' => PM_Gym_Helpers::format_member_id($member->member_id)
+                    'member_id' => PM_Gym_Helpers::format_member_id($member->member_id),
+                    'trainer_id' => $trainer_id,
+                    'trainer_name' => $trainer_name
                 );
 
                 // Get signature data from member meta table
@@ -290,7 +337,9 @@ class PM_Gym_Admin
         $gender = isset($_POST['gender']) && !empty($_POST['gender']) ? sanitize_text_field($_POST['gender']) : null;
         $dob = isset($_POST['dob']) && !empty($_POST['dob']) ? sanitize_text_field($_POST['dob']) : null;
         $expiry_date = isset($_POST['expiry_date']) && !empty($_POST['expiry_date']) ? sanitize_text_field($_POST['expiry_date']) : null;
+        $renewal_date = isset($_POST['renewal_date']) && !empty($_POST['renewal_date']) ? sanitize_text_field($_POST['renewal_date']) : null;
         $reference = isset($_POST['reference']) && !empty($_POST['reference']) ? sanitize_text_field($_POST['reference']) : null;
+        $trainer_id = isset($_POST['trainer_id']) && !empty($_POST['trainer_id']) ? intval($_POST['trainer_id']) : null;
 
         // Validate required fields
         if (empty($member_name)) {
@@ -356,10 +405,11 @@ class PM_Gym_Admin
             'gender' => $gender,
             'dob' => $dob,
             'expiry_date' => $expiry_date,
+            'renewal_date' => $renewal_date,
             'reference' => $reference
         );
 
-        $member_data_format = array('%s', '%s', '%s', '%s', '%d', '%s', '%d', '%s', '%s', '%s', '%s', '%s');
+        $member_data_format = array('%s', '%s', '%s', '%s', '%d', '%s', '%d', '%s', '%s', '%s', '%s');
 
         // Update or insert member
         if ($record_id > 0) {
@@ -373,6 +423,10 @@ class PM_Gym_Admin
             );
 
             if ($result !== false) {
+                if (!empty($trainer_id)) {
+                    PM_Gym_Helpers::update_member_meta($record_id, 'trainer_id', $trainer_id, false);
+                }
+
                 wp_send_json_success(array(
                     'message' => 'Member updated successfully',
                     'member_id' => $record_id
@@ -393,22 +447,28 @@ class PM_Gym_Admin
             );
 
             if ($result) {
+                $member_id = $wpdb->insert_id;
+                if (!empty($trainer_id)) {
+                    PM_Gym_Helpers::add_member_meta($member_id, 'trainer_id', $trainer_id, false);
+                }
+
                 // Insert member meta
                 $member_meta_table = PM_GYM_MEMBER_META_TABLE;
                 $signature = isset($_POST['signature']) ? $_POST['signature'] : null;
-                $member_id = $wpdb->insert_id;
+
 
                 if (!empty($signature)) {
                     // Insert member meta
-                    $member_meta_data = array(
-                        'member_id' => $member_id,
-                        'meta_key' => 'signature',
-                        'meta_value' => $signature
-                    );
+                    // $member_meta_data = array(
+                    //     'member_id' => $member_id,
+                    //     'meta_key' => 'signature',
+                    //     'meta_value' => $signature
+                    // );
 
-                    $member_meta_format = array('%d', '%s', '%s');
+                    // $member_meta_format = array('%d', '%s', '%s');
 
-                    $wpdb->insert($member_meta_table, $member_meta_data, $member_meta_format);
+                    // $wpdb->insert($member_meta_table, $member_meta_data, $member_meta_format);
+                    PM_Gym_Helpers::add_member_meta($member_id, 'signature', $signature, false);
                 }
 
                 wp_send_json_success(array(
@@ -448,273 +508,6 @@ class PM_Gym_Admin
         }
 
         wp_send_json_error('Error deleting member');
-    }
-
-    public function mark_attendance()
-    {
-        $is_guest = isset($_POST['is_guest']) && $_POST['is_guest'] == '1' ? true : false;
-        $attendance_type = isset($_POST['attendance_type']) ? sanitize_text_field($_POST['attendance_type']) : '';
-        $today = current_time('Y-m-d');
-        $current_time = current_time('mysql');
-
-        // Validate attendance type
-        if (!in_array($attendance_type, ['check_in', 'check_out'])) {
-            wp_send_json_error('Invalid attendance type');
-            return;
-        }
-
-        if ($is_guest) {
-            // Handle guest attendance
-            $guest_name = isset($_POST['guest_name']) ? sanitize_text_field($_POST['guest_name']) : '';
-            $guest_phone = isset($_POST['guest_phone']) ? sanitize_text_field($_POST['guest_phone']) : '';
-
-            if (empty($guest_name) || empty($guest_phone)) {
-                wp_send_json_error('Please provide both name and phone number for guest attendance');
-                return;
-            }
-
-            if (!preg_match('/^[0-9]{10}$/', $guest_phone)) {
-                wp_send_json_error('Please enter a valid 10-digit phone number');
-                return;
-            }
-
-            // Check if guest already has attendance for today
-            global $wpdb;
-            $attendance_table = PM_GYM_ATTENDANCE_TABLE;
-            $guest_users_table = PM_GYM_GUEST_USERS_TABLE;
-
-            // First check if guest exists in guest users table
-            $existing_guest_user = $wpdb->get_row($wpdb->prepare(
-                "SELECT * FROM $guest_users_table WHERE phone = %s",
-                $guest_phone
-            ));
-
-            // If guest doesn't exist, create new guest record
-            if (!$existing_guest_user) {
-                $guest_data = array(
-                    'name' => $guest_name,
-                    'phone' => $guest_phone,
-                    'last_visit_date_time' => $current_time,
-                    'notes' => 'First visit',
-                    'status' => 'not_member'
-                );
-
-                $guest_format = array('%s', '%s', '%s', '%s', '%s');
-                $wpdb->insert($guest_users_table, $guest_data, $guest_format);
-
-                $guest_id = $wpdb->insert_id;
-            } else {
-                // Update last visit date for existing guest
-                $wpdb->update(
-                    $guest_users_table,
-                    array('last_visit_date_time' => $current_time),
-                    array('phone' => $guest_phone),
-                    array('%s'),
-                    array('%s')
-                );
-
-                $guest_id = $existing_guest_user->id;
-            }
-
-            $existing_guest = $wpdb->get_row($wpdb->prepare(
-                "SELECT * FROM $attendance_table 
-                WHERE is_guest = 1 
-                AND guest_id = %d 
-                AND DATE(check_in_time) = %s 
-                LIMIT 1",
-                $guest_id,
-                $today
-            ));
-
-            if ($attendance_type === 'check_in') {
-                if (!empty($existing_guest)) {
-                    wp_send_json_error(sprintf('%s Your attendance is already recorded for today', $guest_name));
-                    return;
-                }
-
-                $attendance_data = array(
-                    'user_id' => $guest_id, // 0 for guests
-                    'user_type' => 'guest',
-                    'check_in_time' => $current_time,
-                    'check_in_date' => $today
-                );
-
-                $format = array('%d', '%s', '%s', '%s', '%s', '%s');
-
-                // Insert into attendance table
-                $result = $wpdb->insert($attendance_table, $attendance_data, $format);
-
-                if ($result) {
-                    $attendance_id = $wpdb->insert_id;
-                    wp_send_json_success(sprintf('%s Your attendance is recorded successfully', $guest_name));
-                } else {
-                    wp_send_json_error('Error recording guest check-in: ' . $wpdb->last_error);
-                }
-            } else { // check_out
-                if (empty($existing_guest)) {
-                    wp_send_json_error('No guest check-in found for today');
-                    return;
-                }
-
-                if (!empty($existing_guest->check_out_time)) {
-                    wp_send_json_error('Guest check-out already recorded for today');
-                    return;
-                }
-
-                // Calculate duration
-                $check_in = new DateTime($existing_guest->check_in_time);
-                $check_out = new DateTime($current_time);
-                $duration = $check_in->diff($check_out);
-                $duration_minutes = ($duration->h * 60) + $duration->i;
-
-                // Update attendance record
-                $result = $wpdb->update(
-                    $attendance_table,
-                    array(
-                        'check_out_time' => $current_time,
-                        'attendance_type' => 'complete',
-                        'duration_minutes' => $duration_minutes
-                    ),
-                    array('id' => $existing_guest->id),
-                    array('%s', '%s', '%d'),
-                    array('%d')
-                );
-
-                if ($result) {
-                    wp_send_json_success('Guest check-out recorded successfully');
-                } else {
-                    wp_send_json_error('Error recording check-out: Database error');
-                }
-            }
-        } else {
-            // Handle regular member attendance
-            $member_id = isset($_POST['member_id']) ? sanitize_text_field($_POST['member_id']) : '';
-
-            // Validate member ID format
-            if (!preg_match('/^[0-9]{4}$/', $member_id)) {
-                wp_send_json_error('Invalid member ID format');
-                return;
-            }
-
-            // Find member by ID
-            global $wpdb;
-            $members_table = PM_GYM_MEMBERS_TABLE;
-
-            // Convert the 4-digit member ID to the actual member_id in the database
-            $member_id_numeric = intval($member_id);
-
-            $member = $wpdb->get_row(
-                $wpdb->prepare(
-                    "SELECT * FROM $members_table WHERE member_id = %d",
-                    $member_id_numeric
-                )
-            );
-
-            if (empty($member)) {
-                wp_send_json_error('Member not found');
-                return;
-            }
-
-            // Check membership status from the members table
-            if ($member->status === 'suspended') {
-                wp_send_json_error('Hello ' . $member->name . ', your membership is suspended. Please contact the gym staff.');
-                return;
-            }
-
-            // Get expiry date if needed
-            $expiry_date = $member->expiry_date ?? '';
-
-            // if (!empty($expiry_date) && $today > $expiry_date && $attendance_type === 'check_in') {
-            //     wp_send_json_error('Your membership has expired. Please renew your membership.');
-            //     return;
-            // }
-
-            // Check existing attendance for today
-            // Check existing attendance for today from the attendance table
-            $attendance_table = PM_GYM_ATTENDANCE_TABLE;
-            $existing_attendance = $wpdb->get_results(
-                $wpdb->prepare(
-                    "SELECT * FROM $attendance_table 
-                    WHERE user_id = %d 
-                    AND check_in_date = %s",
-                    $member->id,
-                    $today
-                )
-            );
-
-            if ($attendance_type === 'check_in') {
-                if (!empty($existing_attendance)) {
-                    wp_send_json_error('Hello ' . $member->name . ', you have already checked in today!');
-                    return;
-                }
-
-                // Insert record into attendance table
-                $attendance_data = array(
-                    'user_id' => $member->id,
-                    'user_type' => 'member',
-                    'check_in_date' => $today,
-                    'check_in_time' => PM_Gym_Helpers::get_current_time()
-                );
-
-                $result = $wpdb->insert(
-                    $attendance_table,
-                    $attendance_data,
-                    array('%d', '%s', '%s', '%s')
-                );
-
-                // Print detailed error information if the insert fails
-                if ($result === false) {
-                    $db_error = $wpdb->last_error;
-                    error_log('Attendance check-in error: ' . $db_error);
-                    wp_send_json_error('Error recording check-in: ' . $db_error);
-                    return;
-                }
-
-                if ($result) {
-                    wp_send_json_success('Hello ' . $member->name . ', your check-in has been recorded successfully!');
-                } else {
-                    wp_send_json_error('Error recording check-in: Database error');
-                }
-            } else {
-                // Handle check-out
-                if (empty($existing_attendance)) {
-                    wp_send_json_error('No check-in found for today');
-                    return;
-                }
-
-                // Get the latest check-in record for today
-                $attendance_record = $existing_attendance[0];
-
-                // Check if checkout already recorded
-                if (!empty($attendance_record->check_out_time)) {
-                    wp_send_json_error('Check-out already recorded for today');
-                    return;
-                }
-
-                // Calculate duration
-                $check_in_time = $attendance_record->check_in_time;
-                $duration = $this->calculate_duration($check_in_time, $current_time);
-
-                // Update with check-out time
-                $result = $wpdb->update(
-                    $attendance_table,
-                    array(
-                        'check_out_time' => $current_time,
-                    ),
-                    array('id' => $attendance_record->id),
-                    array('%s'),
-                    array('%d')
-                );
-
-                if ($result) {
-                    wp_send_json_success(array(
-                        'message' => 'Check-out recorded successfully'
-                    ));
-                } else {
-                    wp_send_json_error('Error recording check-out: Database error');
-                }
-            }
-        }
     }
 
     public function mark_check_out_attendance()
@@ -826,247 +619,6 @@ class PM_Gym_Admin
 
         // Convert hours and minutes to total minutes
         return ($duration->h * 60) + $duration->i;
-    }
-
-    /**
-     * Handle bulk upload of members via CSV
-     */
-    public function bulk_upload_members()
-    {
-        // Check permissions
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error(array('message' => 'Unauthorized access'));
-            return;
-        }
-
-        // Check if file was uploaded
-        if (!isset($_FILES['csv_file']) || $_FILES['csv_file']['error'] !== UPLOAD_ERR_OK) {
-            wp_send_json_error(array('message' => 'File upload failed'));
-            return;
-        }
-
-        $file = $_FILES['csv_file'];
-        $file_path = $file['tmp_name'];
-
-        // Validate file type
-        $file_type = pathinfo($file['name'], PATHINFO_EXTENSION);
-        if (strtolower($file_type) !== 'csv') {
-            wp_send_json_error(array('message' => 'Invalid file type. Please upload a CSV file.'));
-            return;
-        }
-
-        // Read and process CSV file
-        $handle = fopen($file_path, 'r');
-        if (!$handle) {
-            wp_send_json_error(array('message' => 'Unable to read the CSV file'));
-            return;
-        }
-
-        global $wpdb;
-        $members_table = PM_GYM_MEMBERS_TABLE;
-
-        $row_count = 0;
-        $success_count = 0;
-        $error_count = 0;
-        $errors = array();
-
-        // Skip header row
-        $header = fgetcsv($handle);
-
-        // Expected CSV format: Name,Phone,Email,Member ID,Membership Type,Aadhar Number,Gender,Date of Birth,Address,Status
-        $expected_headers = array('name', 'phone', 'email', 'member_id', 'membership_type', 'aadhar_number', 'gender', 'address', 'join_date', 'expiry_date', 'reference');
-
-        // Validate headers (optional but recommended)
-        if ($header && count($header) !== count($expected_headers)) {
-            fclose($handle);
-            wp_send_json_error(array('message' => 'Invalid CSV format. Expected ' . count($expected_headers) . ' columns, got ' . count($header)));
-            return;
-        }
-
-        while (($data = fgetcsv($handle)) !== FALSE) {
-            $row_count++;
-
-            // Skip empty rows
-            if (empty(array_filter($data))) {
-                continue;
-            }
-
-            // Validate required fields
-            $member_id = isset($data[0]) ? intval(trim($data[0])) : null;
-            $name = isset($data[1]) ? trim($data[1]) : null;
-            $gender = isset($data[2]) ? trim(strtolower($data[2])) : null;
-            $reference = isset($data[3]) ? trim($data[3]) : null;
-            $phone = isset($data[4]) ? trim($data[4]) : null;
-            $membership_type = isset($data[5]) ? intval(trim($data[5])) : 0;
-            $join_date = isset($data[6]) ? trim($data[6]) : null;
-            $expiry_date = isset($data[7]) ? trim($data[7]) : null;
-            $address = isset($data[8]) ? trim($data[8]) : null;
-            $aadhar_number = isset($data[9]) ? trim($data[9]) : null;
-            $email = isset($data[10]) ? trim($data[10]) : null;
-
-            // Validate required fields
-            $row_errors = array();
-
-            if (empty($name)) {
-                $row_errors[] = 'Name is required';
-            }
-
-            if (empty($phone) || !preg_match('/^[0-9]{10}$/', $phone)) {
-                $row_errors[] = 'Valid 10-digit phone number is required';
-            }
-
-            if (empty($member_id) || $member_id <= 0 || $member_id > 9999) {
-                $row_errors[] = 'Valid member ID (1-9999) is required';
-            }
-
-            if ($membership_type <= 0) {
-                $row_errors[] = 'Valid membership type (1-12 months) is required';
-            }
-
-            if (empty($aadhar_number) || !preg_match('/^[0-9]{12}$/', $aadhar_number)) {
-                $row_errors[] = 'Valid 12-digit Aadhar number is required';
-            }
-
-            if (!in_array($gender, array('male', 'female', 'other'))) {
-                $row_errors[] = 'Valid gender (male/female/other) is required';
-            }
-
-            if (empty($dob) || !strtotime($dob)) {
-                $row_errors[] = 'Valid date of birth (YYYY-MM-DD) is required';
-            }
-
-            // if (!empty($row_errors)) {
-            //     $error_count++;
-            //     $errors[] = "Row $row_count: " . implode(', ', $row_errors);
-            //     continue;
-            // }
-
-            // Check for duplicate phone number
-            $existing_member = $wpdb->get_var($wpdb->prepare(
-                "SELECT id FROM $members_table WHERE phone = %s",
-                $phone
-            ));
-
-            if ($existing_member) {
-                $error_count++;
-                $errors[] = "Row $row_count: Phone number $phone already exists";
-                continue;
-            }
-
-            // Check for duplicate member ID
-            $existing_member_id = $wpdb->get_var($wpdb->prepare(
-                "SELECT id FROM $members_table WHERE member_id = %d",
-                $member_id
-            ));
-
-            if ($existing_member_id) {
-                $error_count++;
-                $errors[] = "Row $row_count: Member ID $member_id already exists";
-                continue;
-            }
-
-            // Check for duplicate Aadhar number
-            $existing_aadhar = $wpdb->get_var($wpdb->prepare(
-                "SELECT id FROM $members_table WHERE aadhar_number = %s",
-                $aadhar_number
-            ));
-
-            if ($existing_aadhar) {
-                $error_count++;
-                $errors[] = "Row $row_count: Aadhar number $aadhar_number already exists";
-                continue;
-            }
-
-            // Calculate expiry date
-            $join_date = !empty($join_date) ? $join_date : date('Y-m-d');
-            $expiry_date = date('Y-m-d', strtotime($join_date . ' + ' . $membership_type . ' months'));
-
-            // Prepare member data
-            $member_data = array(
-                'name' => sanitize_text_field($name),
-                'phone' => sanitize_text_field($phone),
-                'email' => sanitize_email($email),
-                'member_id' => intval($member_id),
-                'membership_type' => intval($membership_type),
-                'aadhar_number' => sanitize_text_field($aadhar_number),
-                'gender' => sanitize_text_field($gender),
-                'address' => sanitize_textarea_field($address),
-                'join_date' => sanitize_text_field($join_date),
-                'expiry_date' => sanitize_text_field($expiry_date),
-                'status' => 'active', // Add default status
-                'reference' => sanitize_text_field($reference)
-            );
-
-            // Define format array matching the data array
-            $format = array(
-                '%s', // name
-                '%s', // phone
-                '%s', // email
-                '%d', // member_id
-                '%d', // membership_type
-                '%s', // aadhar_number
-                '%s', // gender
-                '%s', // address
-                '%s', // join_date
-                '%s', // expiry_date
-                '%s', // status
-                '%s'  // reference
-            );
-
-            // Insert member with error handling
-            $result = $wpdb->insert(
-                $members_table,
-                $member_data,
-                $format
-            );
-
-            if ($result === false) {
-                $error_count++;
-                $errors[] = "Row $row_count: Database error - " . $wpdb->last_error;
-                continue;
-            } else {
-                print_r("hello");
-            }
-
-
-
-            if ($result) {
-                $success_count++;
-            } else {
-                $error_count++;
-                // $errors[] = "Row $row_count: Database error - " . $wpdb->last_error;
-            }
-        }
-
-
-        die();
-
-        fclose($handle);
-
-        // Prepare response message
-        $message = "Bulk upload completed. ";
-        $message .= "Successfully added: $success_count members. ";
-
-        if ($error_count > 0) {
-            $message .= "Errors: $error_count. ";
-        }
-
-        $response_data = array(
-            'message' => $message,
-            'success_count' => $success_count,
-            'error_count' => $error_count,
-            'total_rows' => $row_count
-        );
-
-        if (!empty($errors)) {
-            // $response_data['errors'] = $errors;
-        }
-
-        if ($success_count > 0) {
-            wp_send_json_success($response_data);
-        } else {
-            wp_send_json_error($response_data);
-        }
     }
 
     /**
@@ -1247,108 +799,195 @@ class PM_Gym_Admin
         ));
     }
 
-    public function export_attendance_csv()
+
+
+    /**
+     * AJAX handler to save gym staff
+     */
+    public function save_gym_staff()
     {
+        // Check if user has permission
         if (!current_user_can('manage_options')) {
             wp_send_json_error('Unauthorized access');
+            return;
         }
-
-        $export_date = isset($_GET['date']) ? sanitize_text_field($_GET['date']) : current_time('Y-m-d');
 
         global $wpdb;
+        $staff_table = PM_GYM_STAFF_TABLE;
 
-        // Get attendance data for export
-        $export_data = $wpdb->get_results(
-            $wpdb->prepare(
-                "SELECT 
-                    CASE 
-                        WHEN a.user_type = 'member' THEN m.member_id
-                        ELSE NULL
-                    END as member_id,
-                    a.user_type,
-                    CASE 
-                        WHEN a.user_type = 'member' THEN m.name
-                        WHEN a.user_type = 'guest' THEN g.name
-                    END as name,
-                    CASE 
-                        WHEN a.user_type = 'member' THEN m.phone
-                        WHEN a.user_type = 'guest' THEN g.phone
-                    END as phone,
-                    a.check_in_time,
-                    a.check_out_time,
-                    CASE 
-                        WHEN a.user_type = 'member' THEN m.status
-                        ELSE NULL
-                    END as status
-                FROM " . PM_GYM_ATTENDANCE_TABLE . " a
-                LEFT JOIN " . PM_GYM_MEMBERS_TABLE . " m ON a.user_id = m.id AND a.user_type = 'member'
-                LEFT JOIN " . PM_GYM_GUEST_USERS_TABLE . " g ON a.user_id = g.id AND a.user_type = 'guest'
-                WHERE DATE(a.check_in_date) = %s
-                ORDER BY a.check_in_time DESC",
-                $export_date
-            )
+        // Get and sanitize staff data
+        $id = isset($_POST['record_id']) ? intval($_POST['record_id']) : null;
+        $staff_id = isset($_POST['staff_id']) ? intval($_POST['staff_id']) : null;
+        $name = isset($_POST['staff_name']) ? sanitize_text_field($_POST['staff_name']) : '';
+        $role = isset($_POST['role']) ? sanitize_text_field($_POST['role']) : '';
+        $phone = isset($_POST['phone']) ? sanitize_text_field($_POST['phone']) : '';
+        $aadhar = isset($_POST['aadhar_number']) ? sanitize_text_field($_POST['aadhar_number']) : '';
+        $address = isset($_POST['address']) ? sanitize_textarea_field($_POST['address']) : '';
+        $status = isset($_POST['status']) ? sanitize_text_field($_POST['status']) : 'active';
+
+        // Validate required fields
+        if (empty($staff_id)) {
+            wp_send_json_error('Staff ID is required');
+            return;
+        }
+
+        if (empty($name)) {
+            wp_send_json_error('Name is required');
+            return;
+        }
+
+        if (empty($phone)) {
+            wp_send_json_error('Phone number is required');
+            return;
+        }
+
+        if (empty($aadhar)) {
+            wp_send_json_error('Aadhar number is required');
+            return;
+        }
+
+        if (empty($address)) {
+            wp_send_json_error('Address is required');
+            return;
+        }
+
+        if (empty($role)) {
+            wp_send_json_error('Role is required');
+            return;
+        }
+
+        // Check if phone number already exists and belongs to different staff
+        if (!empty($phone)) {
+            $existing_staff = $wpdb->get_var(
+                $wpdb->prepare("SELECT id FROM $staff_table WHERE phone = %s AND id != %d", $phone, $id)
+            );
+
+            if ($existing_staff) {
+                wp_send_json_error('A staff member with this phone number already exists');
+                return;
+            }
+        }
+
+        // Prepare staff data for database
+        $staff_data = array(
+            'staff_id' => $staff_id,
+            'name' => $name,
+            'role' => $role,
+            'phone' => $phone,
+            'aadhar_number' => $aadhar,
+            'address' => $address,
+            'status' => $status
         );
 
-        // Create temporary file
-        $upload_dir = wp_upload_dir();
-        $export_dir = $upload_dir['basedir'] . '/gym-exports';
+        $staff_data_format = array('%d', '%s', '%s', '%s', '%s', '%s', '%s');
 
-        // Create directory if it doesn't exist
-        if (!file_exists($export_dir)) {
-            wp_mkdir_p($export_dir);
-        }
+        // Update or insert staff
+        if ($id > 0) {
+            // Update existing staff
+            $result = $wpdb->update(
+                $staff_table,
+                $staff_data,
+                array('id' => $id),
+                $staff_data_format,
+                array('%d')
+            );
 
-        $filename = 'attendance-' . $export_date . '.csv';
-        $filepath = $export_dir . '/' . $filename;
-
-        // Open file for writing
-        $fp = fopen($filepath, 'w');
-
-        // Add UTF-8 BOM for proper Excel encoding
-        fprintf($fp, chr(0xEF) . chr(0xBB) . chr(0xBF));
-
-        // Add CSV headers
-        fputcsv($fp, array(
-            'Member ID',
-            'User Type',
-            'Name',
-            'Contact',
-            'Check-in Time',
-            'Check-out Time',
-            'Duration',
-            'Status'
-        ));
-
-        // Add data rows
-        foreach ($export_data as $row) {
-            $duration = '';
-            if (!empty($row->check_out_time)) {
-                $check_in = new DateTime($row->check_in_time);
-                $check_out = new DateTime($row->check_out_time);
-                $duration = $check_in->diff($check_out)->format('%H hours %i minutes');
+            if ($result !== false) {
+                wp_send_json_success(array(
+                    'message' => 'Staff updated successfully',
+                    'staff_id' => $id
+                ));
+            } else {
+                wp_send_json_error('Error updating staff: ' . $wpdb->last_error);
             }
+        } else {
+            // Insert new staff
+            $result = $wpdb->insert(
+                $staff_table,
+                $staff_data,
+                $staff_data_format
+            );
 
-            fputcsv($fp, array(
-                $row->user_type === 'member' ? PM_Gym_Helpers::format_member_id($row->member_id) : '-',
-                ucfirst($row->user_type),
-                $row->name,
-                $row->phone,
-                date('h:i A', strtotime($row->check_in_time)),
-                !empty($row->check_out_time) ? date('h:i A', strtotime($row->check_out_time)) : '-',
-                $duration,
-                $row->status ? ucfirst($row->status) : '-'
-            ));
+            if ($result) {
+                wp_send_json_success(array(
+                    'message' => 'Staff added successfully',
+                    'staff_id' => $wpdb->insert_id
+                ));
+            } else {
+                wp_send_json_error('Error adding staff: ' . $wpdb->last_error);
+            }
+        }
+    }
+
+    /**
+     * AJAX handler to get staff data
+     */
+    public function get_staff_data()
+    {
+        // Check if user has permission
+        // if (!current_user_can('manage_options')) {
+        //     wp_send_json_error('Unauthorized access');
+        //     return;
+        // }
+
+        $staff_id = isset($_POST['staff_id']) ? intval($_POST['staff_id']) : 0;
+
+        global $wpdb;
+        $staff_table = PM_GYM_STAFF_TABLE;
+
+        $staff = $wpdb->get_row(
+            $wpdb->prepare("SELECT * FROM $staff_table WHERE staff_id = %s", $staff_id),
+            ARRAY_A //ARRAY_A is used to return the result as an associative array
+        );
+
+        if ($staff) {
+            wp_send_json_success($staff);
+        } else {
+            wp_send_json_error('Staff not found');
+        }
+    }
+
+    /**
+     * AJAX handler to delete staff
+     */
+    public function delete_staff()
+    {
+        // Check if user has permission
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Unauthorized access');
+            return;
         }
 
-        fclose($fp);
+        $staff_id = isset($_POST['staff_id']) ? intval($_POST['staff_id']) : 0;
 
-        // Get the URL for the file
-        $file_url = $upload_dir['baseurl'] . '/gym-exports/' . $filename;
+        global $wpdb;
+        $staff_table = $wpdb->prefix . 'pm_gym_staff';
 
-        // Send success response with file URL
-        wp_send_json_success(array(
-            'file_url' => $file_url,
-            'message' => 'Attendance data exported successfully'
-        ));
+        $result = $wpdb->delete(
+            $staff_table,
+            array('id' => $staff_id),
+            array('%d')
+        );
+
+        if ($result) {
+            wp_send_json_success(array('message' => 'Staff deleted successfully'));
+        } else {
+            wp_send_json_error('Error deleting staff: ' . $wpdb->last_error);
+        }
+    }
+
+    /**
+     * AJAX handler to get the next available member ID
+     */
+    public function get_next_staff_id()
+    {
+        // Check if user has permission
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Unauthorized access');
+            return;
+        }
+
+        $next_id = PM_Gym_Helpers::get_next_staff_id();
+        wp_send_json_success(array('next_id' => $next_id));
     }
 }
