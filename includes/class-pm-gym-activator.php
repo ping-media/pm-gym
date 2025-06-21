@@ -13,6 +13,9 @@ class PM_Gym_Activator
         // Create Gym Manager role
         self::create_gym_manager_role();
 
+        // Schedule daily cron event for member expiry
+        self::schedule_member_expiry_cron();
+
         // Flush rewrite rules
         flush_rewrite_rules();
     }
@@ -173,5 +176,14 @@ class PM_Gym_Activator
             'delete_published_posts' => true,
             'manage_options' => false
         ));
+    }
+
+    private static function schedule_member_expiry_cron()
+    {
+        // Check if the cron event is already scheduled
+        if (!wp_next_scheduled('pm_gym_daily_member_expiry')) {
+            // Schedule the event to run daily at midnight
+            wp_schedule_event(time(), 'daily', 'pm_gym_daily_member_expiry');
+        }
     }
 }

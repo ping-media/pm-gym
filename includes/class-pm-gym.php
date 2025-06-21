@@ -12,10 +12,11 @@ class PM_Gym
     public function __construct()
     {
         $this->plugin_name = 'pm-gym';
-        $this->version = '1.2.0';
+        $this->version = '1.2.3';
         $this->load_dependencies();
         $this->define_admin_hooks();
         $this->define_public_hooks();
+        $this->define_cron_hooks();
 
         // Hide admin bar for all users everywhere except user ID 1
         add_action('init', function () {
@@ -63,6 +64,12 @@ class PM_Gym
 
         // Enqueue public scripts and styles
         add_action('wp_enqueue_scripts', array($this, 'enqueue_public_scripts'));
+    }
+
+    private function define_cron_hooks()
+    {
+        // Register cron callback for member expiry
+        add_action('pm_gym_daily_member_expiry', array('PM_Gym_Helpers', 'handle_member_expiry'));
     }
 
     public function enqueue_public_scripts()

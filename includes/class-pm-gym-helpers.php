@@ -537,11 +537,67 @@ class PM_Gym_Helpers
         global $wpdb;
         $staff_table = PM_GYM_STAFF_TABLE;
 
-        $name = $wpdb->get_var($wpdb->prepare(
-            "SELECT name FROM $staff_table WHERE id = %d",
-            $trainer_id
+        $staff = $wpdb->get_row(
+            $wpdb->prepare("SELECT name FROM $staff_table WHERE id = %d", $trainer_id)
+        );
+
+        return $staff ? $staff->name : '';
+    }
+
+    /**
+     * Handle daily member expiry check
+     * This function is called by the cron job to update expired member statuses
+     */
+    public static function handle_member_expiry()
+    {
+        global $wpdb;
+        $members_table = PM_GYM_MEMBERS_TABLE;
+        $current_date = current_time('Y-m-d');
+
+        // Get all active members whose expiry date has passed
+        $expired_members = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT id, name, phone, expiry_date 
+                FROM $members_table 
+                WHERE status = 'active' 
+                AND expiry_date < %s 
+                AND expiry_date IS NOT NULL",
+                $current_date
+            )
+        );
+
+        if (empty($expired_members)) {
+            return;
+        }
+
+        $updated_count = 0;
+        $member_ids = array();
+
+        foreach ($expired_members as $member) {
+            $member_ids[] = $member->id;
+        }
+
+        // Update status to expired for all expired members
+        if (!empty($member_ids)) {
+            $placeholders = implode(',', array_fill(0, count($member_ids), '%d'));
+            $query = $wpdb->prepare(
+                "UPDATE $members_table 
+                SET status = 'expired', 
+                    date_modified = %s 
+                WHERE id IN ($placeholders)",
+                array_merge(array(current_time('mysql')), $member_ids)
+            );
+
+            $result = $wpdb->query($query);
+            $updated_count = $wpdb->rows_affected;
+        }
+
+        // Log the expiry check
+        error_log(sprintf(
+            'PM Gym: Member expiry check completed. %d members marked as expired.',
+            $updated_count
         ));
 
-        return $name ?: null;
+        return $updated_count;
     }
 }

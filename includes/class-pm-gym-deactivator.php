@@ -7,8 +7,17 @@ class PM_Gym_Deactivator
 {
     public static function deactivate()
     {
+        // Clear scheduled cron event for member expiry
+        self::clear_member_expiry_cron();
+
         // Flush rewrite rules
         flush_rewrite_rules();
+    }
+
+    private static function clear_member_expiry_cron()
+    {
+        // Clear the scheduled cron event
+        wp_clear_scheduled_hook('pm_gym_daily_member_expiry');
     }
 
     /**

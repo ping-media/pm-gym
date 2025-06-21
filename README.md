@@ -124,6 +124,16 @@ This plugin is licensed under the GPL v2 or later.
 
 ## Changelog
 
+### 1.2.3
+
+- Added automatic member expiry functionality with daily cron job
+- Implemented daily scheduled task to check and update expired member statuses
+- Added member expiry callback function with comprehensive logging
+- Enhanced member status management with automatic expiry detection
+- Improved database efficiency with batch member status updates
+- Added cron event scheduling and cleanup on plugin activation/deactivation
+- Enhanced error logging for member expiry operations
+
 ### 1.2.2
 
 - Added staff attendance tracking functionality with morning/evening shift support
