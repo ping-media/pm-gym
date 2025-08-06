@@ -193,10 +193,24 @@ $attendance_rate = $total_members > 0 ? round(($today_count / $total_members) * 
                 </thead>
                 <tbody>
                     <?php foreach ($today_attendance as $record): ?>
+                        <?php
+                        $member_id = esc_html(PM_Gym_Helpers::format_member_id($record->member_id_number));
+                        $member_link = admin_url('admin.php?page=pm-gym-members&id=' . $member_id);
+
+                        ?>
                         <tr>
-                            <td><?php echo $record->user_type === 'member' ? esc_html(PM_Gym_Helpers::format_member_id($record->member_id_number)) : '-'; ?></td>
+                            <td><?php echo $record->user_type === 'member' ? $member_id : '-'; ?></td>
                             <td><?php echo esc_html($record->user_type); ?></td>
-                            <td><?php echo esc_html($record->name); ?><br><small><?php echo esc_html($record->phone); ?></small></td>
+                            <td>
+                                <?php if ($record->user_type === 'member'): ?>
+                                    <a href="<?php echo $member_link; ?>">
+                                        <?php echo esc_html($record->name); ?>
+                                    </a>
+                                <?php else: ?>
+                                    <?php echo esc_html($record->name); ?>
+                                <?php endif; ?>
+                                <br><small><?php echo esc_html($record->phone); ?></small>
+                            </td>
                             <td><?php echo esc_html(date('d M, Y', strtotime($record->check_in_date))); ?></td>
                             <td><?php echo esc_html(date('h:i A', strtotime($record->check_in_time))); ?></td>
                             <td>

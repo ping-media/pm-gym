@@ -4,7 +4,7 @@
  * Plugin Name: PM Gym Management
  * Plugin URI: https://wpexpertdeep.com/pm-gym
  * Description: A comprehensive gym management system for WordPress with member management, attendance tracking, and fee management.
- * Version: 1.2.3
+ * Version: 1.2.4
  * Author: Deep Goyal
  * Author URI: https://wpexpertdeep.com
  * Text Domain: pm-gym
@@ -17,7 +17,7 @@ if (!defined('WPINC')) {
 }
 
 // Define plugin constants
-define('PM_GYM_VERSION', '1.2.3');
+define('PM_GYM_VERSION', '1.2.4');
 define('PM_GYM_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('PM_GYM_PLUGIN_URL', plugin_dir_url(__FILE__));
 

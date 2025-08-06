@@ -124,6 +124,18 @@ This plugin is licensed under the GPL v2 or later.
 
 ## Changelog
 
+### 1.2.4
+
+- Enhanced member attendance form to display member expiry date and days remaining
+- Updated staff attendance form evening shift time from 4 PM to 3 PM
+- Created comprehensive member detail template showing all member information and complete attendance history
+- Added member detail page with grid layout displaying member ID, name, contact info, membership details, and status
+- Implemented attendance history section with detailed check-in/check-out times and duration calculations
+- Added attendance summary showing total records and last visit information
+- Enhanced member detail view with status badges and attendance type indicators
+- Improved member detail styling with responsive grid layout and professional design
+- Added go-back functionality for better navigation in member detail pages
+
 ### 1.2.3
 
 - Added automatic member expiry functionality with daily cron job

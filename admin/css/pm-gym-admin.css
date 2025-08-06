@@ -237,6 +237,26 @@
 .form-field input[type=email], .form-field input[type=number], .form-field input[type=password], .form-field input[type=search], .form-field input[type=tel], .form-field input[type=text], .form-field input[type=url], .form-field textarea{
     width: 100%;
 }
+.button.button-danger{
+    background-color: #dc3545;
+    color: #fff;
+    border-color: #dc3545;
+}
+.button.button-danger:hover{
+    background-color: #c82333;
+    border-color: #bd2130;
+    color: #fff;
+}
+.button.button-success{
+    background-color: #28a745;
+    color: #fff;
+    border-color: #28a745;
+}
+.button.button-success:hover{   
+    background-color: #218838;
+    border-color: #1e7e34;
+    color: #fff;
+}
 
 /* Responsive Design */
 @media screen and (max-width: 782px) {

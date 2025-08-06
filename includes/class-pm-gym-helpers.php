@@ -560,7 +560,7 @@ class PM_Gym_Helpers
                 "SELECT id, name, phone, expiry_date 
                 FROM $members_table 
                 WHERE status = 'active' 
-                AND expiry_date < %s 
+                AND expiry_date <= %s 
                 AND expiry_date IS NOT NULL",
                 $current_date
             )

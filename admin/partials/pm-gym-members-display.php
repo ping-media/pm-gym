@@ -2,10 +2,20 @@
 if (!defined('ABSPATH')) {
     exit;
 }
-
 global $wpdb;
-
 $members_table = PM_GYM_MEMBERS_TABLE;
+if (isset($_GET['id']) && !empty($_GET['id'])) {
+    $member_id = intval($_GET['id']);
+    $member = $wpdb->get_row($wpdb->prepare("SELECT * FROM $members_table WHERE member_id = %d", $member_id));
+    if ($member) {
+        // Include the member details template
+        include plugin_dir_path(__FILE__) . 'pm-gym-member-details.php';
+        die();
+    }
+}
+
+
+
 
 // Handle member deletion
 if (isset($_POST['delete_member']) && isset($_POST['record_id'])) {
@@ -256,7 +266,7 @@ if (empty($membership_types) || is_wp_error($membership_types)) {
                             Status<?php echo esc_html($status_sort_indicator); ?>
                         </a>
                     </th>
-                    <th>Actions</th>
+                    <th style="width: 200px;">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -278,7 +288,9 @@ if (empty($membership_types) || is_wp_error($membership_types)) {
                         <tr>
                             <td><?php echo esc_html($formatted_id); ?></td>
                             <td class="text-capitalize">
-                                <?php echo esc_html($member->name); ?>
+                                <a href="<?php echo esc_url(add_query_arg(array('id' => $member->member_id), admin_url('admin.php?page=pm-gym-members'))); ?>" class="member-name-link">
+                                    <?php echo esc_html($member->name); ?>
+                                </a>
                                 <br>
                                 <small class="text-muted">
                                     <?php echo esc_html($member->phone); ?>
@@ -295,10 +307,11 @@ if (empty($membership_types) || is_wp_error($membership_types)) {
                                 </span>
                             </td>
                             <td>
+                                <a href="<?php echo esc_url(add_query_arg(array('id' => $member->id), admin_url('admin.php?page=pm-gym-members'))); ?>" class="button view-member button-success">View</a>
                                 <button class="button edit-member" data-id="<?php echo esc_attr($member->id); ?>">Edit</button>
 
                                 <?php if (current_user_can('administrator') && get_current_user_id() === 1): ?>
-                                    <button class="button delete-member" data-id="<?php echo esc_attr($member->id); ?>">Delete</button>
+                                    <button class="button delete-member button-danger" data-id="<?php echo esc_attr($member->id); ?>">Delete</button>
                                 <?php endif; ?>
                             </td>
                         </tr>

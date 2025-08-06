@@ -66,15 +66,15 @@ class PM_Gym_Staff_Attendance
         $current_hour = current_time('G'); // Get current hour in 24-hour format
 
         // Validate shift timing
-        if ($shift === 'morning' && $current_hour >= 16) {
-            wp_send_json_error('Morning shift attendance can only be marked before 4:00 PM');
-            return;
-        }
+        // if ($shift === 'morning' && $current_hour >= 15) {
+        //     wp_send_json_error('Morning shift attendance can only be marked before 3:00 PM');
+        //     return;
+        // }
 
-        if ($shift === 'evening' && $current_hour < 16) {
-            wp_send_json_error('Evening shift attendance can only be marked after 4:00 PM');
-            return;
-        }
+        // if ($shift === 'evening' && $current_hour <= 15) {
+        //     wp_send_json_error('Evening shift attendance can only be marked after 3:00 PM');
+        //     return;
+        // }
 
         // For check-in
         if ($attendance_type === 'check_in') {

@@ -12,7 +12,7 @@ class PM_Gym
     public function __construct()
     {
         $this->plugin_name = 'pm-gym';
-        $this->version = '1.2.3';
+        $this->version = '1.2.4';
         $this->load_dependencies();
         $this->define_admin_hooks();
         $this->define_public_hooks();

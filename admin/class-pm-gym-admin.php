@@ -600,7 +600,8 @@ class PM_Gym_Admin
         wp_send_json_success(array(
             'name' => $member->name,
             'status' => $member->status,
-            'remaining' => $remaining_days
+            'remaining' => $remaining_days,
+            'expiry_date' => $member->expiry_date
         ));
     }
 

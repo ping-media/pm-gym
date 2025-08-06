@@ -350,22 +350,29 @@
                         $('#attendance-message').removeClass('success error').text('Processing...');
                     },
                     success: function(response) {
+                        console.log(response);
                         if (response.success) {
                             const data = response.data;
                             $('#member-name').text(data.name);
                             if (data.remaining && data.status == 'active') {
                                 $('#membership-remaining').text(data.remaining);
+                            } else if (data.status == 'expired') {
+                                let expire_date = new Date(data.expiry_date);
+                                expire_date_value = expire_date.toLocaleDateString('en-US', {
+                                    day: 'numeric',
+                                    month: 'short',
+                                    year: 'numeric'
+                                }); 
+                                let days_diff = Math.ceil((new Date() - expire_date) / (1000 * 60 * 60 * 24));
+                                let expire_msg = ' expired <strong>' + days_diff + ' days ago</strong> on <strong>' + expire_date_value + '</strong>';
+                                // let expire_msg = ' expired on ' + expire_date_value;
+                                $('#membership-remaining').html(expire_msg);
+                                $('#membership-status').addClass('expired');
                             } else {
                                 $('#membership-remaining').text(data.status);
                             }
                             $('#member-info').show();
-
-                            // If membership expired, show warning
-                            if (data.status === 'expired') {
-                                $('#membership-status').addClass('expired');
-                            } else {
-                                $('#membership-status').removeClass('expired');
-                            }
+                            // $('#membership-status').removeClass('expired');
 
                             // Now mark attendance after getting member details
                             markAttendance();

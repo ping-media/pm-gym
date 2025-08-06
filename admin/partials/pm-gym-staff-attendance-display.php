@@ -6,13 +6,15 @@ if (!defined('ABSPATH')) {
 global $wpdb;
 $staff_table = PM_GYM_STAFF_TABLE;
 
-// Get today's attendance records
-$selected_date = isset($_GET['attendance_date']) ? sanitize_text_field($_GET['attendance_date']) : current_time('Y-m-d');
+// Get date range parameters
+$from_date = isset($_GET['from_date']) ? sanitize_text_field($_GET['from_date']) : current_time('Y-m-d');
+$to_date = isset($_GET['to_date']) ? sanitize_text_field($_GET['to_date']) : current_time('Y-m-d');
 $selected_staff_id = isset($_GET['staff_id']) ? sanitize_text_field($_GET['staff_id']) : '';
-$date_range = isset($_GET['date_range']) ? sanitize_text_field($_GET['date_range']) : 'today';
+$date_range = isset($_GET['date_range']) ? sanitize_text_field($_GET['date_range']) : 'custom';
 
-// Debug the selected date and staff ID
-error_log('Selected Date: ' . $selected_date);
+// Debug the selected dates and staff ID
+error_log('From Date: ' . $from_date);
+error_log('To Date: ' . $to_date);
 error_log('Selected Staff ID: ' . $selected_staff_id);
 error_log('Date Range: ' . $date_range);
 
@@ -22,9 +24,10 @@ $query = $wpdb->prepare(
     FROM " . PM_GYM_STAFF_ATTENDANCE_TABLE . " a
     LEFT JOIN " . PM_GYM_STAFF_TABLE . " s ON a.staff_id = s.id
     WHERE 1=1
-    " . ($date_range === 'today' ? $wpdb->prepare("AND DATE(a.check_in_date) = %s", $selected_date) : "") . "
-    " . ($date_range === 'week' ? $wpdb->prepare("AND a.check_in_date >= DATE_SUB(%s, INTERVAL 7 DAY)", $selected_date) : "") . "
-    " . ($date_range === 'month' ? $wpdb->prepare("AND a.check_in_date >= DATE_SUB(%s, INTERVAL 30 DAY)", $selected_date) : "") . "
+    " . ($date_range === 'today' ? $wpdb->prepare("AND DATE(a.check_in_date) = %s", current_time('Y-m-d')) : "") . "
+    " . ($date_range === 'week' ? $wpdb->prepare("AND a.check_in_date >= DATE_SUB(%s, INTERVAL 7 DAY)", current_time('Y-m-d')) : "") . "
+    " . ($date_range === 'month' ? $wpdb->prepare("AND a.check_in_date >= DATE_SUB(%s, INTERVAL 30 DAY)", current_time('Y-m-d')) : "") . "
+    " . ($date_range === 'custom' ? $wpdb->prepare("AND DATE(a.check_in_date) BETWEEN %s AND %s", $from_date, $to_date) : "") . "
     " . ($date_range === 'all' ? "" : "") . "
     " . ($selected_staff_id ? $wpdb->prepare("AND s.staff_id = %s", $selected_staff_id) : "") . "
     ORDER BY a.check_in_date DESC, a.shift ASC, a.check_in_time DESC"
@@ -79,11 +82,17 @@ $attendance_rate = $total_staff > 0 ? round(($today_count / $total_staff) * 100,
                 <option value="today" <?php selected($date_range, 'today'); ?>>Today</option>
                 <option value="week" <?php selected($date_range, 'week'); ?>>Last 7 Days</option>
                 <option value="month" <?php selected($date_range, 'month'); ?>>Last 30 Days</option>
+                <option value="custom" <?php selected($date_range, 'custom'); ?>>Custom Range</option>
                 <option value="all" <?php selected($date_range, 'all'); ?>>All Time</option>
             </select>
 
-            <label for="attendance_date">Select Date:</label>
-            <input type="date" id="attendance_date" name="attendance_date" value="<?php echo esc_attr($selected_date); ?>" max="<?php echo current_time('Y-m-d'); ?>">
+            <div class="date-inputs">
+                <label for="from_date">From Date:</label>
+                <input type="date" id="from_date" name="from_date" value="<?php echo esc_attr($from_date); ?>" max="<?php echo current_time('Y-m-d'); ?>">
+
+                <label for="to_date">To Date:</label>
+                <input type="date" id="to_date" name="to_date" value="<?php echo esc_attr($to_date); ?>" max="<?php echo current_time('Y-m-d'); ?>">
+            </div>
 
             <label for="staff_id">Staff:</label>
             <select id="staff_id" name="staff_id">
@@ -103,15 +112,15 @@ $attendance_rate = $total_staff > 0 ? round(($today_count / $total_staff) * 100,
             </select>
 
             <input type="submit" class="button" value="View Attendance">
-            <button type="button" class="button export-csv-btn" data-date="<?php echo esc_attr($selected_date); ?>">Export to CSV</button>
-            <a href="<?php echo esc_url(remove_query_arg(['attendance_date', 'staff_id', 'date_range'])); ?>" class="button" style="background-color: #dc3545; color: white; border-color: #dc3545; text-decoration: none;">Reset</a>
+            <button type="button" class="button export-csv-btn" data-from-date="<?php echo esc_attr($from_date); ?>" data-to-date="<?php echo esc_attr($to_date); ?>">Export to CSV</button>
+            <a href="<?php echo esc_url(remove_query_arg(['from_date', 'to_date', 'staff_id', 'date_range'])); ?>" class="button" style="background-color: #dc3545; color: white; border-color: #dc3545; text-decoration: none;">Reset</a>
         </form>
     </div>
 
     <!-- Statistics -->
     <div class="attendance-stats">
         <div class="stat-box">
-            <h3>Today's Attendance</h3>
+            <h3>Attendance Records</h3>
             <p class="stat-number"><?php echo esc_html($today_count); ?></p>
         </div>
         <div class="stat-box">
@@ -139,7 +148,7 @@ $attendance_rate = $total_staff > 0 ? round(($today_count / $total_staff) * 100,
 
         <!-- Today's Attendance -->
         <div class="today-attendance">
-            <h2>Attendance</h2>
+            <h2>Attendance Records (<?php echo esc_html(date('d M Y', strtotime($from_date))); ?> - <?php echo esc_html(date('d M Y', strtotime($to_date))); ?>)</h2>
             <table class="wp-list-table widefat fixed striped">
                 <thead>
                     <tr>
@@ -264,6 +273,7 @@ $attendance_rate = $total_staff > 0 ? round(($today_count / $total_staff) * 100,
         display: flex;
         gap: 10px;
         align-items: center;
+        /* flex-wrap: wrap; */
     }
 
     .date-selection label {
@@ -275,6 +285,12 @@ $attendance_rate = $total_staff > 0 ? round(($today_count / $total_staff) * 100,
         padding: 5px;
         border: 1px solid #ddd;
         border-radius: 4px;
+    }
+
+    .date-inputs {
+        display: flex;
+        gap: 10px;
+        align-items: center;
     }
 
     .check-in-section {
@@ -388,8 +404,8 @@ $attendance_rate = $total_staff > 0 ? round(($today_count / $total_staff) * 100,
 
 <script>
     jQuery(document).ready(function($) {
-        // Initialize datepicker
-        $('#attendance_date').datepicker({
+        // Initialize datepickers
+        $('#from_date, #to_date').datepicker({
             dateFormat: 'yy-mm-dd',
             maxDate: '0', // Disable future dates
             changeMonth: true,
@@ -407,23 +423,33 @@ $attendance_rate = $total_staff > 0 ? round(($today_count / $total_staff) * 100,
         $('#date_range').on('change', function() {
             var dateRange = $(this).val();
             if (dateRange === 'all') {
-                $('#attendance_date').prop('disabled', true);
+                $('#from_date, #to_date').prop('disabled', true);
+            } else if (dateRange === 'custom') {
+                $('#from_date, #to_date').prop('disabled', false);
             } else {
-                $('#attendance_date').prop('disabled', false);
+                $('#from_date, #to_date').prop('disabled', true);
             }
         });
 
         // Initial state
         if ($('#date_range').val() === 'all') {
-            $('#attendance_date').prop('disabled', true);
+            $('#from_date, #to_date').prop('disabled', true);
+        } else if ($('#date_range').val() !== 'custom') {
+            $('#from_date, #to_date').prop('disabled', true);
         }
 
-        // Handle date change
-        $('#attendance_date').on('change', function() {
-            var selectedDate = $(this).val();
-            var currentUrl = new URL(window.location.href);
-            currentUrl.searchParams.set('attendance_date', selectedDate);
-            window.location.href = currentUrl.toString();
+        // Handle date changes
+        $('#from_date, #to_date').on('change', function() {
+            var fromDate = $('#from_date').val();
+            var toDate = $('#to_date').val();
+
+            if (fromDate && toDate) {
+                var currentUrl = new URL(window.location.href);
+                currentUrl.searchParams.set('from_date', fromDate);
+                currentUrl.searchParams.set('to_date', toDate);
+                currentUrl.searchParams.set('date_range', 'custom');
+                window.location.href = currentUrl.toString();
+            }
         });
 
         // Auto-refresh attendance list every minute
@@ -485,6 +511,8 @@ $attendance_rate = $total_staff > 0 ? round(($today_count / $total_staff) * 100,
         // Handle CSV Export
         $('.export-csv-btn').on('click', function() {
             var $exportBtn = $(this);
+            var fromDate = $exportBtn.data('from-date');
+            var toDate = $exportBtn.data('to-date');
 
             // Show loading state
             $exportBtn.prop('disabled', true).addClass('loading');
@@ -494,13 +522,15 @@ $attendance_rate = $total_staff > 0 ? round(($today_count / $total_staff) * 100,
                 type: 'POST',
                 data: {
                     action: 'export_staff_attendance',
+                    from_date: fromDate,
+                    to_date: toDate
                 },
                 success: function(response) {
                     if (response.success) {
                         // Create a temporary link to download the file
                         var link = document.createElement('a');
                         link.href = response.data.file_url;
-                        link.download = 'staff-attendance-' + new Date().toISOString().split('T')[0] + '.csv';
+                        link.download = 'staff-attendance-' + fromDate + '-to-' + toDate + '.csv';
                         document.body.appendChild(link);
                         link.click();
                         document.body.removeChild(link);
