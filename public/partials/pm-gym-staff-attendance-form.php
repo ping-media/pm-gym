@@ -5,6 +5,9 @@ if (!defined('ABSPATH')) {
 ?>
 <div class="pm-gym-staff-attendance-form-container">
     <div class="pm-gym-staff-attendance-form">
+        <div style="text-align: center; margin-bottom: 20px;">
+            <img src="/wp-content/plugins/pm-gym/public/img/logo-gym.png" alt="PM Gym Logo" style="width: 100px; height: 100px; margin-bottom: 20px;">
+        </div>
         <h2>Staff Attendance</h2>
         <form id="pm-gym-staff-attendance-form" method="post">
             <div class="form-group">

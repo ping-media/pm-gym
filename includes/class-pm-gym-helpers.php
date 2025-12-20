@@ -600,4 +600,94 @@ class PM_Gym_Helpers
 
         return $updated_count;
     }
+
+    /**
+     * Get member face descriptor
+     * 
+     * @param int $member_id Member ID
+     * @return array|false Face descriptor array or false if not found
+     */
+    public static function get_member_face_descriptor($member_id)
+    {
+        $descriptor_json = self::get_member_meta($member_id, 'face_descriptor', true);
+
+        if (empty($descriptor_json)) {
+            return false;
+        }
+
+        $descriptor = json_decode($descriptor_json, true);
+
+        if (!is_array($descriptor) || count($descriptor) !== 128) {
+            return false;
+        }
+
+        return $descriptor;
+    }
+
+    /**
+     * Get all members with face descriptors
+     * 
+     * @return array Array of members with face descriptors
+     */
+    public static function get_all_members_with_faces()
+    {
+        global $wpdb;
+        $members_table = PM_GYM_MEMBERS_TABLE;
+        $member_meta_table = PM_GYM_MEMBER_META_TABLE;
+
+        $results = $wpdb->get_results(
+            "SELECT m.id, m.member_id, m.name, m.status, mm.meta_value as face_descriptor
+            FROM $members_table m
+            INNER JOIN $member_meta_table mm ON m.id = mm.member_id
+            WHERE mm.meta_key = 'face_descriptor'
+            AND m.status IN ('active', 'pending')
+            ORDER BY m.member_id ASC"
+        );
+
+        $members = array();
+        foreach ($results as $row) {
+            $descriptor = json_decode($row->face_descriptor, true);
+            if (is_array($descriptor) && count($descriptor) === 128) {
+                $members[] = array(
+                    'member_id' => intval($row->member_id),
+                    'id' => intval($row->id),
+                    'name' => $row->name,
+                    'status' => $row->status,
+                    'descriptor' => $descriptor
+                );
+            }
+        }
+
+        return $members;
+    }
+
+    /**
+     * Validate face descriptor format
+     * 
+     * @param mixed $descriptor Face descriptor to validate
+     * @return bool True if valid, false otherwise
+     */
+    public static function validate_face_descriptor($descriptor)
+    {
+        if (is_string($descriptor)) {
+            $descriptor = json_decode($descriptor, true);
+        }
+
+        if (!is_array($descriptor)) {
+            return false;
+        }
+
+        if (count($descriptor) !== 128) {
+            return false;
+        }
+
+        // Check if all values are numeric
+        foreach ($descriptor as $value) {
+            if (!is_numeric($value)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }

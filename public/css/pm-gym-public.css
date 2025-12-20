@@ -214,13 +214,14 @@
 
 .pm-gym-member-registration-form-container {
     background: url(/wp-content/plugins/pm-gym/public/img/bg.jpg);
-    height: 100vh;
+    min-height: 100vh;
     background-repeat: no-repeat;
     background-size: cover;
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     flex-direction: column;
+    padding-top: 30px;
 }
 .pm-gym-member-registration-form-container h2{
     text-align: center;
@@ -231,11 +232,110 @@
     border-radius: 10px;
     width: 100%;
 }
+/* Face Recognition Styles */
+.face-capture-container {
+    margin-top: 15px;
+}
+
+.face-capture-container video,
+.face-scan-preview video {
+    width: 100%;
+    max-width: 640px;
+    border-radius: 8px;
+    background: #000;
+    display: block;
+    margin: 0 auto;
+}
+
+.face-capture-container canvas,
+.face-scan-preview canvas {
+    display: none;
+}
+
+#face-preview-container,
+.face-scan-preview {
+    position: relative;
+    margin: 15px 0;
+    text-align: center;
+}
+
+#face-status,
+#face-scan-status {
+    margin-top: 10px;
+    font-weight: 500;
+    min-height: 24px;
+    padding: 8px;
+    border-radius: 4px;
+}
+
+#face-capture-controls,
+#face-scan-controls {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+#face-preview-thumbnail {
+    margin-top: 15px;
+    text-align: center;
+}
+
+#face-preview-thumbnail img {
+    max-width: 150px;
+    border-radius: 8px;
+    margin-top: 10px;
+    border: 2px solid #28a745;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.face-scan-preview {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+
+/* Face detection overlay styles */
+.face-detection-box {
+    position: absolute;
+    border: 2px solid #28a745;
+    border-radius: 4px;
+    pointer-events: none;
+}
+
+/* Loading states */
+.face-loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #4682B4;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-right: 10px;
+    vertical-align: middle;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Face scan button styling */
+#scan-face-btn {
+    padding: 12px 20px;
+    font-size: 16px;
+    white-space: nowrap;
+}
+
 /* Responsive Design */
 @media screen and (max-width: 768px) {
     .row {
-        flex-direction: column;
+        /* flex-direction: column; */
         gap: 10px;
+        margin-bottom: 0;
     }
     
     .col-4 {
@@ -244,5 +344,97 @@
     
     #member-form {
         padding: 15px;
+    }
+
+    .face-capture-container video,
+    .face-scan-preview video {
+        max-width: 100%;
+    }
+
+    #face-capture-controls,
+    #face-scan-controls {
+        flex-direction: column;
+    }
+
+    #face-capture-controls button,
+    #face-scan-controls button {
+        width: 100%;
+    }
+}
+
+/* Face Enrollment Form Styles */
+.pm-gym-face-enrollment-form-container {
+    background: url(/wp-content/plugins/pm-gym/public/img/bg.jpg);
+    min-height: 100vh;
+    background-repeat: no-repeat;
+    background-size: cover;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    padding: 20px;
+}
+
+.pm-gym-face-enrollment-form {
+    background: #fff;
+    padding: 30px;
+    border-radius: 30px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    max-width: 600px;
+    width: 100%;
+}
+
+.pm-gym-face-enrollment-form h2 {
+    text-align: center;
+    font-size: 28px;
+    margin-bottom: 10px;
+    color: #1e2b3d;
+}
+
+.pm-gym-face-enrollment-form .form-step {
+    margin-bottom: 25px;
+}
+
+.pm-gym-face-enrollment-form .member-info-box {
+    padding: 20px;
+    background: #f8dedc;
+    border-radius: 10px;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.pm-gym-face-enrollment-form .member-info-box h3 {
+    font-size: 24px;
+    margin-bottom: 10px;
+    color: #1e2b3d;
+}
+
+.pm-gym-face-enrollment-form .member-info-box p {
+    font-size: 16px;
+    color: #333;
+    margin: 5px 0;
+}
+
+.pm-gym-face-enrollment-form .message {
+    margin-top: 15px;
+    padding: 10px;
+    border-radius: 4px;
+    text-align: center;
+    font-weight: 500;
+}
+
+.pm-gym-face-enrollment-form .message.success {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.pm-gym-face-enrollment-form .message.error {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+@media screen and (max-width: 768px) {
+    .pm-gym-face-enrollment-form {
+        padding: 20px;
     }
 }

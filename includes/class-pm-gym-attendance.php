@@ -299,10 +299,11 @@ class PM_Gym_Attendance
 
         global $wpdb;
 
-        // Get attendance data for export
-        $export_data = $wpdb->get_results(
-            $wpdb->prepare(
-                "SELECT 
+        // Get optional user_type filter
+        $user_type_filter = isset($_POST['user_type']) ? sanitize_text_field($_POST['user_type']) : '';
+
+        // Build query with optional user_type filter
+        $query = "SELECT 
                     CASE 
                         WHEN a.user_type = 'member' THEN m.member_id
                         ELSE NULL
@@ -316,6 +317,7 @@ class PM_Gym_Attendance
                         WHEN a.user_type = 'member' THEN m.phone
                         WHEN a.user_type = 'guest' THEN g.phone
                     END as phone,
+                    a.check_in_date,
                     a.check_in_time,
                     a.check_out_time,
                     CASE 
@@ -325,8 +327,21 @@ class PM_Gym_Attendance
                 FROM " . PM_GYM_ATTENDANCE_TABLE . " a
                 LEFT JOIN " . PM_GYM_MEMBERS_TABLE . " m ON a.user_id = m.id AND a.user_type = 'member'
                 LEFT JOIN " . PM_GYM_GUEST_USERS_TABLE . " g ON a.user_id = g.id AND a.user_type = 'guest'
-                ORDER BY a.check_in_time DESC"
-            )
+                WHERE 1=1";
+
+        $query_params = array();
+
+        // Add user_type filter if specified
+        if (!empty($user_type_filter) && in_array($user_type_filter, ['member', 'guest'])) {
+            $query .= " AND a.user_type = %s";
+            $query_params[] = $user_type_filter;
+        }
+
+        $query .= " ORDER BY a.check_in_date DESC, a.check_in_time DESC";
+
+        // Get attendance data for export
+        $export_data = $wpdb->get_results(
+            empty($query_params) ? $query : $wpdb->prepare($query, $query_params)
         );
 
         // Create temporary file
@@ -338,7 +353,9 @@ class PM_Gym_Attendance
             wp_mkdir_p($export_dir);
         }
 
-        $filename = 'attendance-' . date('Y-m-d') . '.csv';
+        // Set filename based on user_type filter
+        $filename_prefix = !empty($user_type_filter) ? $user_type_filter . '-attendance' : 'attendance';
+        $filename = $filename_prefix . '-' . date('Y-m-d') . '.csv';
         $filepath = $export_dir . '/' . $filename;
 
         // Open file for writing

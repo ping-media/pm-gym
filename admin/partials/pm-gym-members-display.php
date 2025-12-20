@@ -940,6 +940,7 @@ if (empty($membership_types) || is_wp_error($membership_types)) {
                         } else {
                             $('#signature-display').html('<p>No signature available</p>');
                         }
+
                         // Make member ID field read-only in edit mode
                         $('#member_id').prop('readonly', true);
 
@@ -1155,5 +1156,6 @@ if (empty($membership_types) || is_wp_error($membership_types)) {
                 }
             });
         });
+
     });
 </script>

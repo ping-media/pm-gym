@@ -71,7 +71,7 @@ class PM_Gym_Staff_Attendance
         //     return;
         // }
 
-        // if ($shift === 'evening' && $current_hour <= 15) {
+        // if ($shift === 'evening' && $current_hour < 15) {
         //     wp_send_json_error('Evening shift attendance can only be marked after 3:00 PM');
         //     return;
         // }

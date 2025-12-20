@@ -8,7 +8,7 @@ global $wpdb;
 $guests_table = PM_GYM_GUEST_USERS_TABLE;
 
 // Get all guests from the custom table with sorting
-$sql = "SELECT * FROM $guests_table ORDER BY id DESC";
+$sql = "SELECT * FROM $guests_table ORDER BY last_visit_date_time DESC";
 $guests = $wpdb->get_results($sql);
 
 // Calculate statistics

@@ -3,8 +3,8 @@
 /**
  * Plugin Name: PM Gym Management
  * Plugin URI: https://wpexpertdeep.com/pm-gym
- * Description: A comprehensive gym management system for WordPress with member management, attendance tracking, and fee management.
- * Version: 1.2.4
+ * Description: A comprehensive gym management system for WordPress with member management, attendance tracking with face recognition, and fee management.
+ * Version: 1.3.0
  * Author: Deep Goyal
  * Author URI: https://wpexpertdeep.com
  * Text Domain: pm-gym
@@ -17,7 +17,7 @@ if (!defined('WPINC')) {
 }
 
 // Define plugin constants
-define('PM_GYM_VERSION', '1.2.4');
+define('PM_GYM_VERSION', '1.3.0');
 define('PM_GYM_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('PM_GYM_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -39,6 +39,10 @@ define('PM_GYM_MEMBER_META_TABLE', $wpdb->prefix . 'pm_gym_member_meta');    // 
 // Staff related tables
 define('PM_GYM_STAFF_TABLE', $wpdb->prefix . 'pm_gym_staff');                    // Stores staff information
 define('PM_GYM_STAFF_ATTENDANCE_TABLE', $wpdb->prefix . 'pm_gym_staff_attendance'); // Tracks staff attendance
+
+// Face recognition constants
+define('PM_GYM_FACE_MATCH_THRESHOLD', 0.6);  // Threshold for face matching (lower = stricter)
+define('PM_GYM_FACE_DETECTION_ENABLED', true);  // Feature flag for face detection
 
 // Include required files
 require_once PM_GYM_PLUGIN_DIR . 'includes/class-pm-gym.php';

@@ -85,6 +85,45 @@ $aadhar_number = isset($member->aadhar_number) ? $member->aadhar_number : 'N/A';
         <div class="member-info-item">
             <strong>Aadhar Number:</strong> <?php echo esc_html($aadhar_number); ?>
         </div>
+
+        <div class="member-info-item">
+            <strong>Face Recognition:</strong>
+            <?php
+            $face_descriptor = PM_Gym_Helpers::get_member_face_descriptor($user_id);
+            if ($face_descriptor) {
+                echo '<span style="color: #28a745;">✓ Enrolled</span>';
+            } else {
+                echo '<span style="color: #dc3545;">Not Enrolled</span>';
+            }
+            ?>
+        </div>
+    </div>
+
+    <!-- Face Enrollment Section -->
+    <div class="face-enrollment-section" style="margin-top: 30px; padding: 20px; background: #f9f9f9; border-radius: 8px;">
+        <h3>Face Recognition Enrollment</h3>
+        <p style="color: #666; margin-bottom: 15px;">Capture member's face for quick check-in using face scanning</p>
+
+        <div class="face-enrollment-container">
+            <div id="face-enroll-preview-container" style="display: none;">
+                <video id="face-enroll-video" autoplay playsinline style="width: 100%; max-width: 400px; border-radius: 8px; background: #000;"></video>
+                <canvas id="face-enroll-canvas" style="display: none;"></canvas>
+                <div id="face-enroll-status" style="margin-top: 10px; text-align: center; font-weight: 500;"></div>
+            </div>
+            <div id="face-enroll-controls">
+                <button type="button" id="start-face-enroll" class="button button-primary">Start Face Enrollment</button>
+                <button type="button" id="capture-face-enroll" class="button button-primary" style="display: none;">Capture Face</button>
+                <button type="button" id="retake-face-enroll" class="button button-secondary" style="display: none;">Retake</button>
+                <?php if ($face_descriptor): ?>
+                    <button type="button" id="delete-face-enroll" class="button button-secondary" style="margin-left: 10px;">Delete Face Data</button>
+                <?php endif; ?>
+            </div>
+            <div id="face-enroll-preview-thumbnail" style="display: none; margin-top: 15px; text-align: center;">
+                <p style="font-weight: 500; color: #28a745;">✓ Face captured successfully</p>
+                <img id="face-enroll-thumbnail" src="" alt="Captured face" style="max-width: 150px; border-radius: 8px; margin-top: 10px; border: 2px solid #28a745;">
+            </div>
+            <div id="face-enroll-error" class="field-error" style="margin-top: 10px;"></div>
+        </div>
     </div>
 
     <?php
@@ -243,4 +282,343 @@ $aadhar_number = isset($member->aadhar_number) ? $member->aadhar_number : 'N/A';
         margin: 0;
         flex-grow: 1;
     }
+
+    .face-enrollment-section {
+        margin-top: 30px;
+        padding: 20px;
+        background: #f9f9f9;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+    }
+
+    .face-enrollment-section h3 {
+        margin-top: 0;
+        color: #23282d;
+    }
+
+    .face-enrollment-container video {
+        width: 100%;
+        max-width: 400px;
+        border-radius: 8px;
+        background: #000;
+        display: block;
+        margin: 0 auto;
+    }
+
+    #face-enroll-preview-thumbnail img {
+        max-width: 150px;
+        border-radius: 8px;
+        margin-top: 10px;
+        border: 2px solid #28a745;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .field-error {
+        color: #dc3545;
+        font-size: 12px;
+        margin-top: 5px;
+    }
 </style>
+
+<script>
+    jQuery(document).ready(function($) {
+        const memberId = <?php echo intval($user_id); ?>;
+        let faceModelsLoaded = false;
+        let faceEnrollStream = null;
+        let faceEnrollDescriptor = null;
+        let faceEnrollDetectionInterval = null;
+
+        // Check if face-api.js is loaded
+        function checkFaceApiLoaded() {
+            if (typeof faceapi === 'undefined') {
+                $('#face-enroll-error').html('Face recognition library is loading... Please wait a moment and try again.');
+                return false;
+            }
+            return true;
+        }
+
+        // Load face-api.js models
+        async function loadFaceEnrollModels() {
+            if (faceModelsLoaded) return true;
+
+            if (!checkFaceApiLoaded()) {
+                setTimeout(() => {
+                    if (checkFaceApiLoaded()) {
+                        loadFaceEnrollModels();
+                    } else {
+                        $('#face-enroll-error').html('Face recognition library failed to load. Please refresh the page.');
+                    }
+                }, 1000);
+                return false;
+            }
+
+            try {
+                $('#face-enroll-status').text('Loading face recognition models...');
+
+                const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+
+                await Promise.all([
+                    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+                ]);
+
+                faceModelsLoaded = true;
+                $('#face-enroll-status').text('Models loaded. Ready to capture.');
+                $('#face-enroll-error').text('');
+                return true;
+            } catch (error) {
+                console.error('Error loading face models:', error);
+                $('#face-enroll-error').text('Failed to load face recognition models. Please refresh the page.');
+                return false;
+            }
+        }
+
+        // Start camera for face enrollment
+        $('#start-face-enroll').on('click', async function() {
+            if (!faceModelsLoaded) {
+                const loaded = await loadFaceEnrollModels();
+                if (!loaded) return;
+            }
+
+            // Check if we're in a secure context (HTTPS, localhost, or .local domains)
+            const isSecureContext = window.location.protocol === 'https:' ||
+                window.location.hostname === 'localhost' ||
+                window.location.hostname === '127.0.0.1' ||
+                window.location.hostname.includes('.local');
+
+            if (!isSecureContext) {
+                $('#face-enroll-error').html('Camera access requires HTTPS, localhost, or .local domain. Current: ' + window.location.protocol + '://' + window.location.hostname);
+                console.warn('Camera access blocked: Not in secure context. Protocol:', window.location.protocol, 'Hostname:', window.location.hostname);
+                return;
+            }
+
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                $('#face-enroll-error').text('Camera access is not supported in this browser.');
+                return;
+            }
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: 640,
+                        height: 480,
+                        facingMode: 'user'
+                    }
+                });
+
+                faceEnrollStream = stream;
+                const video = document.getElementById('face-enroll-video');
+                video.srcObject = stream;
+
+                $('#face-enroll-preview-container').show();
+                $('#start-face-enroll').hide();
+                $('#capture-face-enroll').show();
+                $('#face-enroll-status').text('Position your face in the frame');
+                $('#face-enroll-error').text('');
+
+                // Start face detection
+                detectFaceInEnrollVideo();
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+                let errorMessage = 'Could not access camera. ';
+
+                if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                    errorMessage += 'Please allow camera access and try again.';
+                } else if (error.name === 'NotFoundError') {
+                    errorMessage += 'No camera found.';
+                } else {
+                    errorMessage += 'Please check camera permissions.';
+                }
+
+                $('#face-enroll-error').text(errorMessage);
+                $('#face-enroll-preview-container').hide();
+                $('#start-face-enroll').show();
+            }
+        });
+
+        // Detect face in video stream
+        async function detectFaceInEnrollVideo() {
+            const video = document.getElementById('face-enroll-video');
+            const canvas = document.getElementById('face-enroll-canvas');
+            const status = document.getElementById('face-enroll-status');
+
+            if (!video || !canvas) return;
+
+            if (faceEnrollDetectionInterval) {
+                clearInterval(faceEnrollDetectionInterval);
+            }
+
+            const displaySize = {
+                width: video.videoWidth || 640,
+                height: video.videoHeight || 480
+            };
+            faceapi.matchDimensions(canvas, displaySize);
+
+            faceEnrollDetectionInterval = setInterval(async () => {
+                if (!faceEnrollStream || faceEnrollDescriptor) {
+                    if (faceEnrollDetectionInterval) {
+                        clearInterval(faceEnrollDetectionInterval);
+                        faceEnrollDetectionInterval = null;
+                    }
+                    return;
+                }
+
+                if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                    try {
+                        const detections = await faceapi
+                            .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
+                            .withFaceLandmarks()
+                            .withFaceDescriptors();
+
+                        if (detections.length > 0) {
+                            status.text('Face detected! Click "Capture Face" to save.');
+                            status.css('color', '#28a745');
+                        } else {
+                            status.text('No face detected. Please position your face in the frame.');
+                            status.css('color', '#dc3545');
+                        }
+                    } catch (error) {
+                        console.error('Face detection error:', error);
+                    }
+                }
+            }, 500);
+        }
+
+        // Capture face descriptor
+        $('#capture-face-enroll').on('click', async function() {
+            const video = document.getElementById('face-enroll-video');
+            const canvas = document.getElementById('face-enroll-canvas');
+
+            try {
+                const detections = await faceapi
+                    .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
+                    .withFaceLandmarks()
+                    .withFaceDescriptors();
+
+                if (detections.length === 0) {
+                    $('#face-enroll-error').text('No face detected. Please try again.');
+                    return;
+                }
+
+                if (detections.length > 1) {
+                    $('#face-enroll-error').text('Multiple faces detected. Please ensure only one person is in frame.');
+                    return;
+                }
+
+                faceEnrollDescriptor = detections[0].descriptor;
+                const descriptorJson = JSON.stringify(Array.from(faceEnrollDescriptor));
+
+                // Capture thumbnail
+                const displaySize = {
+                    width: video.videoWidth || 640,
+                    height: video.videoHeight || 480
+                };
+                faceapi.matchDimensions(canvas, displaySize);
+                const resizedDetections = faceapi.resizeResults(detections, displaySize);
+
+                canvas.width = displaySize.width;
+                canvas.height = displaySize.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, displaySize.width, displaySize.height);
+
+                resizedDetections.forEach(detection => {
+                    const box = detection.detection.box;
+                    ctx.strokeStyle = '#28a745';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(box.x, box.y, box.width, box.height);
+                });
+
+                const thumbnail = canvas.toDataURL('image/jpeg', 0.8);
+                $('#face-enroll-thumbnail').attr('src', thumbnail);
+                $('#face-enroll-preview-thumbnail').show();
+
+                // Stop video stream
+                if (faceEnrollStream) {
+                    faceEnrollStream.getTracks().forEach(track => track.stop());
+                    faceEnrollStream = null;
+                }
+
+                $('#face-enroll-preview-container').hide();
+                $('#capture-face-enroll').hide();
+                $('#retake-face-enroll').show();
+                $('#face-enroll-status').text('Face captured successfully!');
+                $('#face-enroll-error').text('');
+
+                // Save to server
+                $.ajax({
+                    type: 'POST',
+                    url: pm_gym_ajax.ajax_url,
+                    data: {
+                        action: 'update_face_descriptor',
+                        member_id: memberId,
+                        face_descriptor: descriptorJson
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            $('#face-enroll-error').text('').after('<div style="color: #28a745; margin-top: 10px;">✓ Face enrolled successfully!</div>');
+                            setTimeout(() => {
+                                location.reload();
+                            }, 2000);
+                        } else {
+                            $('#face-enroll-error').text('Error: ' + (response.data || 'Failed to save face data'));
+                        }
+                    },
+                    error: function() {
+                        $('#face-enroll-error').text('Error saving face data. Please try again.');
+                    }
+                });
+            } catch (error) {
+                console.error('Error capturing face:', error);
+                $('#face-enroll-error').text('Error capturing face. Please try again.');
+            }
+        });
+
+        // Retake face
+        $('#retake-face-enroll').on('click', function() {
+            faceEnrollDescriptor = null;
+            $('#face-enroll-preview-thumbnail').hide();
+            $('#retake-face-enroll').hide();
+            $('#start-face-enroll').show();
+            $('#face-enroll-status').text('');
+        });
+
+        // Delete face data
+        $('#delete-face-enroll').on('click', function() {
+            if (!confirm('Are you sure you want to delete this member\'s face data?')) {
+                return;
+            }
+
+            $.ajax({
+                type: 'POST',
+                url: pm_gym_ajax.ajax_url,
+                data: {
+                    action: 'update_face_descriptor',
+                    member_id: memberId,
+                    face_descriptor: ''
+                },
+                success: function(response) {
+                    if (response.success) {
+                        alert('Face data deleted successfully.');
+                        location.reload();
+                    } else {
+                        alert('Error: ' + (response.data || 'Failed to delete face data'));
+                    }
+                },
+                error: function() {
+                    alert('Error deleting face data. Please try again.');
+                }
+            });
+        });
+
+        // Cleanup
+        $(window).on('beforeunload', function() {
+            if (faceEnrollStream) {
+                faceEnrollStream.getTracks().forEach(track => track.stop());
+            }
+            if (faceEnrollDetectionInterval) {
+                clearInterval(faceEnrollDetectionInterval);
+            }
+        });
+    });
+</script>

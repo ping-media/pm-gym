@@ -9,10 +9,14 @@ class PM_Gym
     protected $plugin_name;
     protected $version;
 
+    // Face recognition constants
+    const FACE_MATCH_THRESHOLD = 0.6;
+    const FACE_DETECTION_ENABLED = true;
+
     public function __construct()
     {
         $this->plugin_name = 'pm-gym';
-        $this->version = '1.2.4';
+        $this->version = '1.3.0';
         $this->load_dependencies();
         $this->define_admin_hooks();
         $this->define_public_hooks();
@@ -86,13 +90,23 @@ class PM_Gym
             true
         );
 
+        // Enqueue face-api.js library
+        wp_enqueue_script(
+            'face-api',
+            'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js',
+            array(),
+            '0.22.2',
+            true
+        );
+
         // Localize the script with new data
         wp_localize_script(
             'jquery',
             'pm_gym_ajax',
             array(
                 'ajax_url' => admin_url('admin-ajax.php'),
-                'nonce' => wp_create_nonce('pm_gym_nonce')
+                'nonce' => wp_create_nonce('pm_gym_nonce'),
+                'face_match_threshold' => defined('PM_GYM_FACE_MATCH_THRESHOLD') ? PM_GYM_FACE_MATCH_THRESHOLD : 0.6
             )
         );
     }

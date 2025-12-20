@@ -1,13 +1,33 @@
 <div class="pm-gym-attendance-form-container">
     <div class="pm-gym-attendance-form">
+        <div style="text-align: center; margin-bottom: 20px;">
+            <img src="/wp-content/plugins/pm-gym/public/img/logo-gym.png" alt="PM Gym Logo" style="width: 100px; height: 100px; margin-bottom: 0px;">
+        </div>
         <h2>Mark Your Attendance</h2>
         <form id="pm-gym-attendance-form" method="post">
             <div class="form-group">
                 <label for="member_id">Member ID</label>
-                <input type="text" id="member_id" name="member_id" required
-                    placeholder="Enter your member ID (e.g., 12345)"
-                    pattern="[0-9]{4,5}"
-                    title="Please enter a valid member ID">
+                <div style="display: flex; gap: 10px; align-items: center; flex-direction: column;">
+                    <input type="text" id="member_id" name="member_id" required
+                        placeholder="Enter your member ID (e.g., 12345)"
+                        pattern="[0-9]{4,5}"
+                        title="Please enter a valid member ID"
+                        style="flex: 1;">
+                    <span style="color: #666; font-weight: 500;">OR</span>
+                    <button type="button" id="scan-face-btn" class="button button-secondary" style="white-space: nowrap;">Scan Face</button>
+                </div>
+            </div>
+
+            <!-- Face Recognition Modal/Container -->
+            <div id="face-scan-container" style="display: none; margin-top: 20px;">
+                <div class="face-scan-preview">
+                    <video id="face-scan-video" autoplay playsinline style="width: 100%; max-width: 640px; border-radius: 8px; background: #000;"></video>
+                    <canvas id="face-scan-canvas" style="display: none;"></canvas>
+                    <div id="face-scan-status" style="margin-top: 10px; text-align: center; font-weight: 500; min-height: 24px;"></div>
+                    <div id="face-scan-controls" style="margin-top: 15px; text-align: center;">
+                        <button type="button" id="stop-face-scan" class="button button-secondary">Cancel</button>
+                    </div>
+                </div>
             </div>
 
             <div id="member-info" style="display: none;">
@@ -60,14 +80,20 @@
                 <button type="button" id="reload-page-btn" class="button button-secondary">Reload Page</button>
             </div>
         </form>
+        <div class="form-group" style="text-align:center; margin-top:20px;">
+            <a href="/member-register" class="button button-link" style="color:#0073aa; font-weight:600; text-decoration:underline; background:none; border:none; cursor:pointer;">
+                Not a member yet? Register here
+            </a>
+        </div>
+        <div class="form-group" style="text-align:center; margin-top:20px;">
+            <a href="/enroll-face" class="button button-link" style="color:#0073aa; font-weight:600; text-decoration:underline; background:none; border:none; cursor:pointer;">
+                Enroll your face Here
+            </a>
+        </div>
     </div>
 </div>
 
 <style>
-    .pm-gym-attendance-form button {
-        /* background: #28a745; */
-    }
-
     .pm-gym-attendance-form-container {
         margin: 0 auto;
     }
@@ -243,6 +269,13 @@
 
 <script>
     jQuery(document).ready(function($) {
+        // Face Recognition Variables
+        let faceModelsLoaded = false;
+        let faceScanStream = null;
+        let allFaceDescriptors = [];
+        let faceScanInterval = null;
+        let isScanning = false;
+
         // Reload page button
         $('#reload-page-btn').on('click', function() {
             window.location.reload();
@@ -362,7 +395,7 @@
                                     day: 'numeric',
                                     month: 'short',
                                     year: 'numeric'
-                                }); 
+                                });
                                 let days_diff = Math.ceil((new Date() - expire_date) / (1000 * 60 * 60 * 24));
                                 let expire_msg = ' expired <strong>' + days_diff + ' days ago</strong> on <strong>' + expire_date_value + '</strong>';
                                 // let expire_msg = ' expired on ' + expire_date_value;
@@ -424,6 +457,328 @@
                     }
                 });
             }
+        });
+
+        // Check if face-api.js is loaded
+        function checkFaceApiLoaded() {
+            if (typeof faceapi === 'undefined') {
+                $('#face-scan-status').text('Face recognition library is loading... Please wait.').css('color', '#dc3545');
+                return false;
+            }
+            return true;
+        }
+
+        // Face Recognition Functions
+        async function loadFaceModels() {
+            if (faceModelsLoaded) return true;
+
+            // Check if face-api is available
+            if (!checkFaceApiLoaded()) {
+                // Wait a bit and try again
+                setTimeout(() => {
+                    if (checkFaceApiLoaded()) {
+                        loadFaceModels();
+                    } else {
+                        $('#face-scan-status').text('Face recognition library failed to load. Please refresh the page or use Member ID.').css('color', '#dc3545');
+                    }
+                }, 1000);
+                return false;
+            }
+
+            try {
+                $('#face-scan-status').text('Loading face recognition models...').css('color', '#333');
+
+                const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+
+                await Promise.all([
+                    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+                ]);
+
+                faceModelsLoaded = true;
+                return true;
+            } catch (error) {
+                console.error('Error loading face models:', error);
+                $('#face-scan-status').text('Failed to load face recognition models.').css('color', '#dc3545');
+                return false;
+            }
+        }
+
+        async function loadAllFaceDescriptors() {
+            try {
+                const response = await $.ajax({
+                    type: 'POST',
+                    url: pm_gym_ajax.ajax_url,
+                    data: {
+                        action: 'get_all_face_descriptors'
+                    }
+                });
+
+                if (response.success && Array.isArray(response.data)) {
+                    allFaceDescriptors = response.data;
+                    return true;
+                } else {
+                    console.error('Failed to load face descriptors');
+                    return false;
+                }
+            } catch (error) {
+                console.error('Error loading face descriptors:', error);
+                return false;
+            }
+        }
+
+        function calculateFaceDistance(descriptor1, descriptor2) {
+            let sum = 0;
+            for (let i = 0; i < descriptor1.length; i++) {
+                const diff = descriptor1[i] - descriptor2[i];
+                sum += diff * diff;
+            }
+            return Math.sqrt(sum);
+        }
+
+        function findMatchingFace(detectedDescriptor) {
+            const threshold = pm_gym_ajax.face_match_threshold || 0.6;
+            let bestMatch = null;
+            let bestDistance = Infinity;
+
+            for (let i = 0; i < allFaceDescriptors.length; i++) {
+                const member = allFaceDescriptors[i];
+                const distance = calculateFaceDistance(detectedDescriptor, member.descriptor);
+
+                if (distance < threshold && distance < bestDistance) {
+                    bestDistance = distance;
+                    bestMatch = member;
+                }
+            }
+
+            return bestMatch;
+        }
+
+        // Start face scanning
+        $('#scan-face-btn').on('click', async function() {
+            if (isScanning) return;
+
+            // Hide member ID field temporarily
+            $('#member_id').closest('.form-group').hide();
+            $('#scan-face-btn').hide();
+            $('#face-scan-container').show();
+            isScanning = true;
+
+            // Load models if not loaded
+            if (!faceModelsLoaded) {
+                const modelsLoaded = await loadFaceModels();
+                if (!modelsLoaded) {
+                    stopFaceScan();
+                    return;
+                }
+            }
+
+            // Load face descriptors
+            $('#face-scan-status').text('Loading member face data...');
+            const descriptorsLoaded = await loadAllFaceDescriptors();
+            if (!descriptorsLoaded || allFaceDescriptors.length === 0) {
+                $('#face-scan-status').text('No face data available. Please use Member ID entry.').css('color', '#dc3545');
+                setTimeout(() => {
+                    stopFaceScan();
+                }, 3000);
+                return;
+            }
+
+            // Check if we're in a secure context (HTTPS, localhost, or .local domains)
+            const isSecureContext = window.location.protocol === 'https:' ||
+                window.location.hostname === 'localhost' ||
+                window.location.hostname === '127.0.0.1' ||
+                window.location.hostname.includes('.local');
+
+            if (!isSecureContext) {
+                $('#face-scan-status').html('Camera access requires HTTPS, localhost, or .local domain. Current: ' + window.location.protocol + '://' + window.location.hostname).css('color', '#dc3545');
+                console.warn('Camera access blocked: Not in secure context. Protocol:', window.location.protocol, 'Hostname:', window.location.hostname);
+                setTimeout(() => {
+                    stopFaceScan();
+                }, 5000);
+                return;
+            }
+
+            // Check if getUserMedia is supported
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                $('#face-scan-status').text('Camera access is not supported in this browser. Please use Member ID.').css('color', '#dc3545');
+                setTimeout(() => {
+                    stopFaceScan();
+                }, 3000);
+                return;
+            }
+
+            // Start camera
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: 640,
+                        height: 480,
+                        facingMode: 'user'
+                    }
+                });
+
+                faceScanStream = stream;
+                const video = document.getElementById('face-scan-video');
+                video.srcObject = stream;
+
+                $('#face-scan-status').text('Position your face in the frame...').css('color', '#333');
+
+                // Start face detection loop
+                let frameCount = 0;
+                faceScanInterval = setInterval(async () => {
+                    if (!isScanning) {
+                        clearInterval(faceScanInterval);
+                        return;
+                    }
+
+                    frameCount++;
+                    // Process every 3rd frame for performance
+                    if (frameCount % 3 !== 0) return;
+
+                    const video = document.getElementById('face-scan-video');
+                    if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+
+                    try {
+                        const detections = await faceapi
+                            .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
+                            .withFaceLandmarks()
+                            .withFaceDescriptors();
+
+                        if (detections.length === 0) {
+                            $('#face-scan-status').text('No face detected. Please position your face in the frame.').css('color', '#dc3545');
+                            return;
+                        }
+
+                        if (detections.length > 1) {
+                            $('#face-scan-status').text('Multiple faces detected. Please ensure only one person is in frame.').css('color', '#dc3545');
+                            return;
+                        }
+
+                        const detectedDescriptor = Array.from(detections[0].descriptor);
+                        const match = findMatchingFace(detectedDescriptor);
+
+                        if (match) {
+                            // Match found!
+                            clearInterval(faceScanInterval);
+                            stopFaceScan();
+
+                            // Auto-fill member ID
+                            $('#member_id').val(match.member_id.toString().padStart(4, '0'));
+                            $('#member_id').removeClass('error-field');
+
+                            // Show member info
+                            $('#face-scan-status').text('✓ Face recognized! Welcome, ' + match.name).css('color', '#28a745');
+
+                            // Trigger member details fetch to show full info
+                            $.ajax({
+                                type: 'POST',
+                                url: pm_gym_ajax.ajax_url,
+                                data: {
+                                    action: 'get_member_details_for_front_end',
+                                    member_id: match.member_id
+                                },
+                                success: function(response) {
+                                    if (response.success) {
+                                        const data = response.data;
+                                        $('#member-name').text(data.name);
+                                        if (data.remaining && data.status == 'active') {
+                                            $('#membership-remaining').text(data.remaining);
+                                        } else if (data.status == 'expired') {
+                                            let expire_date = new Date(data.expiry_date);
+                                            expire_date_value = expire_date.toLocaleDateString('en-US', {
+                                                day: 'numeric',
+                                                month: 'short',
+                                                year: 'numeric'
+                                            });
+                                            let days_diff = Math.ceil((new Date() - expire_date) / (1000 * 60 * 60 * 24));
+                                            let expire_msg = ' expired <strong>' + days_diff + ' days ago</strong> on <strong>' + expire_date_value + '</strong>';
+                                            $('#membership-remaining').html(expire_msg);
+                                            $('#membership-status').addClass('expired');
+                                        } else {
+                                            $('#membership-remaining').text(data.status);
+                                        }
+                                        $('#member-info').show();
+                                    }
+                                }
+                            });
+
+                            // Show member ID field again
+                            $('#member_id').closest('.form-group').show();
+                            $('#scan-face-btn').show();
+
+                            setTimeout(() => {
+                                $('#face-scan-container').hide();
+                                $('#face-scan-status').text('');
+                            }, 2000);
+                        } else {
+                            $('#face-scan-status').text('Face not recognized. Please try again or use Member ID.').css('color', '#dc3545');
+                        }
+                    } catch (error) {
+                        console.error('Error during face detection:', error);
+                        // Continue trying, don't show error to user unless it's persistent
+                        if (error.message && error.message.includes('model')) {
+                            $('#face-scan-status').text('Face recognition error. Please use Member ID.').css('color', '#dc3545');
+                            setTimeout(() => {
+                                stopFaceScan();
+                            }, 3000);
+                        }
+                    }
+                }, 500); // Check every 500ms
+
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+                let errorMessage = 'Could not access camera. ';
+
+                if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                    errorMessage += 'Please allow camera access and try again, or use Member ID.';
+                } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+                    errorMessage += 'No camera found. Please use Member ID.';
+                } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+                    errorMessage += 'Camera is being used by another application.';
+                } else {
+                    errorMessage += 'Please check camera permissions or use Member ID.';
+                }
+
+                $('#face-scan-status').text(errorMessage).css('color', '#dc3545');
+                setTimeout(() => {
+                    stopFaceScan();
+                }, 5000);
+            }
+        });
+
+        function stopFaceScan() {
+            isScanning = false;
+
+            if (faceScanInterval) {
+                clearInterval(faceScanInterval);
+                faceScanInterval = null;
+            }
+
+            if (faceScanStream) {
+                faceScanStream.getTracks().forEach(track => track.stop());
+                faceScanStream = null;
+            }
+
+            const video = document.getElementById('face-scan-video');
+            if (video) {
+                video.srcObject = null;
+            }
+
+            $('#face-scan-container').hide();
+            $('#member_id').closest('.form-group').show();
+            $('#scan-face-btn').show();
+            $('#face-scan-status').text('');
+        }
+
+        $('#stop-face-scan').on('click', function() {
+            stopFaceScan();
+        });
+
+        // Cleanup on page unload
+        $(window).on('beforeunload', function() {
+            stopFaceScan();
         });
     });
 </script>

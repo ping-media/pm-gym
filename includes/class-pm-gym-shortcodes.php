@@ -21,6 +21,7 @@ class PM_Gym_Shortcodes
         add_shortcode('member_registration_form_shortcode', array($this, 'member_registration_form_shortcode'));
         add_shortcode('member_signature', array($this, 'member_signature_shortcode'));
         add_shortcode('staff_attendance_form_shortcode', array($this, 'staff_attendance_form_shortcode'));
+        add_shortcode('face_enrollment_form', array($this, 'face_enrollment_form_shortcode'));
 
         // Enqueue scripts and styles
         add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
@@ -29,7 +30,7 @@ class PM_Gym_Shortcodes
     public function enqueue_scripts()
     {
         wp_enqueue_script($this->plugin_name . '-public', plugin_dir_url(dirname(__FILE__)) . 'public/js/pm-gym-public.js', array('jquery'), $this->version, true);
-        wp_enqueue_style($this->plugin_name . '-public', plugin_dir_url(dirname(__FILE__)) . 'public/css/pm-gym-public.css', array(), $this->version);
+        wp_enqueue_style($this->plugin_name . '-public', plugin_dir_url(dirname(__FILE__)) . 'public/css/pm-gym-public.css?cache=' . time(), array(), $this->version);
 
         // Localize script
         wp_localize_script($this->plugin_name . '-public', 'pm_gym_public', array(
@@ -160,5 +161,13 @@ class PM_Gym_Shortcodes
         }
 
         return $result;
+    }
+
+    // Face enrollment form shortcode
+    public function face_enrollment_form_shortcode($atts)
+    {
+        ob_start();
+        include PM_GYM_PLUGIN_DIR . 'public/partials/pm-gym-face-enrollment-form.php';
+        return ob_get_clean();
     }
 }

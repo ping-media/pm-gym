@@ -16,6 +16,7 @@ class PM_Gym_Admin
         // Add AJAX handlers for members
         add_action('wp_ajax_get_member_data', array($this, 'get_member_data'));
         add_action('wp_ajax_save_gym_member', array($this, 'save_gym_member'));
+        add_action('wp_ajax_nopriv_save_gym_member', array($this, 'save_gym_member')); // Frontend registration
         add_action('wp_ajax_delete_member', array($this, 'delete_member'));
         add_action('wp_ajax_get_next_member_id', array($this, 'get_next_member_id'));
         add_action('wp_ajax_export_members_csv', array($this, 'export_members_csv'));
@@ -24,6 +25,19 @@ class PM_Gym_Admin
         // Add AJAX handler for front-end member details
         add_action('wp_ajax_get_member_details_for_front_end', array($this, 'get_member_details_for_front_end'));
         add_action('wp_ajax_nopriv_get_member_details_for_front_end', array($this, 'get_member_details_for_front_end'));
+
+        // Add AJAX handler for face descriptors
+        add_action('wp_ajax_get_all_face_descriptors', array($this, 'get_all_face_descriptors'));
+        add_action('wp_ajax_nopriv_get_all_face_descriptors', array($this, 'get_all_face_descriptors'));
+
+        // Add AJAX handler for updating face descriptor (admin only)
+        add_action('wp_ajax_update_face_descriptor', array($this, 'update_face_descriptor'));
+
+        // Add AJAX handlers for frontend face enrollment
+        add_action('wp_ajax_verify_member_for_face_enrollment', array($this, 'verify_member_for_face_enrollment'));
+        add_action('wp_ajax_nopriv_verify_member_for_face_enrollment', array($this, 'verify_member_for_face_enrollment'));
+        add_action('wp_ajax_update_face_descriptor_frontend', array($this, 'update_face_descriptor_frontend'));
+        add_action('wp_ajax_nopriv_update_face_descriptor_frontend', array($this, 'update_face_descriptor_frontend'));
 
         add_action('wp_ajax_nopriv_mark_check_out_attendance', array($this, 'mark_check_out_attendance'));
         add_action('wp_ajax_mark_check_out_attendance', array($this, 'mark_check_out_attendance'));
@@ -54,6 +68,190 @@ class PM_Gym_Admin
 
         // Add new AJAX handler for bulk uploading members
         add_action('wp_ajax_bulk_upload_members', array($this, 'bulk_upload_members'));
+
+        // Check and create tables on admin init
+        add_action('admin_init', array($this, 'check_database_tables'), 1);
+    }
+
+    /**
+     * Get all face descriptors for face recognition
+     * Returns all active members with face descriptors
+     */
+    public function get_all_face_descriptors()
+    {
+        // Use transient cache to reduce database load (5 minutes cache)
+        $cache_key = 'pm_gym_all_face_descriptors';
+        $cached = get_transient($cache_key);
+
+        if ($cached !== false) {
+            wp_send_json_success($cached);
+            return;
+        }
+
+        $members = PM_Gym_Helpers::get_all_members_with_faces();
+
+        // Cache for 5 minutes (300 seconds)
+        // MINUTE_IN_SECONDS is a WordPress constant (60)
+        $cache_duration = 5 * 60;
+        set_transient($cache_key, $members, $cache_duration);
+
+        wp_send_json_success($members);
+    }
+
+    /**
+     * Update face descriptor for a member (admin only)
+     */
+    public function update_face_descriptor()
+    {
+        // Check permissions
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Unauthorized access');
+            return;
+        }
+
+        $member_id = isset($_POST['member_id']) ? intval($_POST['member_id']) : 0;
+        $face_descriptor = isset($_POST['face_descriptor']) ? $_POST['face_descriptor'] : '';
+
+        if ($member_id <= 0) {
+            wp_send_json_error('Invalid member ID');
+            return;
+        }
+
+        // Verify member exists
+        $member = PM_Gym_Helpers::get_member($member_id);
+        if (!$member) {
+            wp_send_json_error('Member not found');
+            return;
+        }
+
+        // Validate face descriptor
+        if (!empty($face_descriptor)) {
+            if (!PM_Gym_Helpers::validate_face_descriptor($face_descriptor)) {
+                wp_send_json_error('Invalid face descriptor format');
+                return;
+            }
+        }
+
+        // Update or delete face descriptor
+        if (!empty($face_descriptor)) {
+            $result = PM_Gym_Helpers::update_member_meta($member_id, 'face_descriptor', $face_descriptor);
+        } else {
+            $result = PM_Gym_Helpers::delete_member_meta($member_id, 'face_descriptor');
+        }
+
+        if ($result) {
+            // Clear cache
+            delete_transient('pm_gym_all_face_descriptors');
+            wp_send_json_success(array('message' => 'Face descriptor updated successfully'));
+        } else {
+            wp_send_json_error('Error updating face descriptor');
+        }
+    }
+
+    /**
+     * Verify member for face enrollment (frontend accessible)
+     */
+    public function verify_member_for_face_enrollment()
+    {
+        $member_id = isset($_POST['member_id']) ? sanitize_text_field($_POST['member_id']) : '';
+
+        // Validate member ID format
+        if (!preg_match('/^[0-9]{4,5}$/', $member_id)) {
+            wp_send_json_error('Invalid member ID format');
+            return;
+        }
+
+        // Find member by ID
+        global $wpdb;
+        $members_table = PM_GYM_MEMBERS_TABLE;
+
+        // Convert the member ID to numeric
+        $member_id_numeric = intval($member_id);
+
+        $member = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT * FROM $members_table WHERE member_id = %d",
+                $member_id_numeric
+            )
+        );
+
+        if (!$member) {
+            wp_send_json_error('Member not found');
+            return;
+        }
+
+        // Check if member is active (allow active, pending, but not suspended/expired for enrollment)
+        if ($member->status === 'suspended') {
+            wp_send_json_error('Your membership is suspended. Please contact the gym staff.');
+            return;
+        }
+
+        // Check if face descriptor already exists
+        $face_descriptor = PM_Gym_Helpers::get_member_face_descriptor($member->id);
+        $has_face = !empty($face_descriptor);
+
+        // Return member info
+        wp_send_json_success(array(
+            'name' => $member->name,
+            'status' => $member->status,
+            'db_id' => $member->id,
+            'has_face' => $has_face
+        ));
+    }
+
+    /**
+     * Update face descriptor from frontend (public access)
+     */
+    public function update_face_descriptor_frontend()
+    {
+        $member_id = isset($_POST['member_id']) ? sanitize_text_field($_POST['member_id']) : '';
+        $face_descriptor = isset($_POST['face_descriptor']) ? $_POST['face_descriptor'] : '';
+
+        // Validate member ID format
+        if (!preg_match('/^[0-9]{4,5}$/', $member_id)) {
+            wp_send_json_error('Invalid member ID format');
+            return;
+        }
+
+        // Find member by ID
+        global $wpdb;
+        $members_table = PM_GYM_MEMBERS_TABLE;
+        $member_id_numeric = intval($member_id);
+
+        $member = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT * FROM $members_table WHERE member_id = %d",
+                $member_id_numeric
+            )
+        );
+
+        if (!$member) {
+            wp_send_json_error('Member not found');
+            return;
+        }
+
+        // Validate face descriptor
+        if (empty($face_descriptor)) {
+            wp_send_json_error('Face descriptor is required');
+            return;
+        }
+
+        $descriptor_array = json_decode($face_descriptor, true);
+        if (!is_array($descriptor_array) || count($descriptor_array) !== 128) {
+            wp_send_json_error('Invalid face descriptor format');
+            return;
+        }
+
+        // Update face descriptor
+        $result = PM_Gym_Helpers::update_member_meta($member->id, 'face_descriptor', $face_descriptor);
+
+        if ($result) {
+            // Clear cache
+            delete_transient('pm_gym_all_face_descriptors');
+            wp_send_json_success(array('message' => 'Face enrollment saved successfully'));
+        } else {
+            wp_send_json_error('Error saving face enrollment');
+        }
     }
 
     public function enqueue_styles()
@@ -80,9 +278,19 @@ class PM_Gym_Admin
 
         wp_enqueue_script($this->plugin_name, plugin_dir_url(__FILE__) . 'js/pm-gym-admin.js', array('jquery', 'flatpickr'), $this->version, false);
 
+        // Enqueue face-api.js for admin (needed for face enrollment in member details)
+        wp_enqueue_script(
+            'face-api',
+            'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js',
+            array(),
+            '0.22.2',
+            true
+        );
+
         // Localize the script with new data
         wp_localize_script($this->plugin_name, 'pm_gym_ajax', array(
-            'ajax_url' => admin_url('admin-ajax.php')
+            'ajax_url' => admin_url('admin-ajax.php'),
+            'face_match_threshold' => defined('PM_GYM_FACE_MATCH_THRESHOLD') ? PM_GYM_FACE_MATCH_THRESHOLD : 0.6
         ));
     }
 
@@ -129,12 +337,12 @@ class PM_Gym_Admin
         );
 
         add_menu_page(
-            'Staff',
-            'Staff',
+            'Guest Attendance',
+            'Guest Attendance',
             'manage_options',
-            'pm-gym-staff',
-            array($this, 'display_staff_page'),
-            'dashicons-businessperson',
+            'pm-gym-guest-attendance',
+            array($this, 'display_guest_attendance_page'),
+            'dashicons-calendar',
             3
         );
 
@@ -146,6 +354,17 @@ class PM_Gym_Admin
             array($this, 'display_staff_attendance_page'),
             'dashicons-calendar-alt',
             3
+        );
+
+
+        add_menu_page(
+            'Staff',
+            'Staff',
+            'manage_options',
+            'pm-gym-staff',
+            array($this, 'display_staff_page'),
+            'dashicons-businessperson',
+            4
         );
 
         // add_submenu_page(
@@ -233,6 +452,11 @@ class PM_Gym_Admin
         require_once plugin_dir_path(__FILE__) . 'partials/pm-gym-staff-attendance-display.php';
     }
 
+    public function display_guest_attendance_page()
+    {
+        require_once plugin_dir_path(__FILE__) . 'partials/pm-gym-guest-attendance-display.php';
+    }
+
     public function display_fees_page()
     {
         require_once plugin_dir_path(__FILE__) . 'partials/pm-gym-fees-display.php';
@@ -305,6 +529,7 @@ class PM_Gym_Admin
                         }
                     }
                 }
+
                 wp_send_json_success($data);
                 return;
             }
@@ -315,8 +540,12 @@ class PM_Gym_Admin
 
     public function save_gym_member()
     {
-        // Check if user has permission
-        if (!current_user_can('manage_options')) {
+        // Check if this is a frontend submission
+        $is_frontend = isset($_POST['frontend_trigger']) && $_POST['frontend_trigger'] == '1';
+
+        // For frontend submissions, allow without admin permission
+        // For admin submissions, require manage_options permission
+        if (!$is_frontend && !current_user_can('manage_options')) {
             wp_send_json_error('Unauthorized access');
             return;
         }
@@ -358,9 +587,15 @@ class PM_Gym_Admin
 
         // Check if aadhar number already exists and belongs to different member
         if (!empty($aadhar_number)) {
-            $existing_member = $wpdb->get_var(
-                $wpdb->prepare("SELECT id FROM $members_table WHERE aadhar_number = %s AND id != %d", $aadhar_number, $record_id)
-            );
+            $existing_query = "SELECT id FROM $members_table WHERE aadhar_number = %s";
+            $existing_params = array($aadhar_number);
+
+            if ($record_id > 0) {
+                $existing_query .= " AND id != %d";
+                $existing_params[] = $record_id;
+            }
+
+            $existing_member = $wpdb->get_var($wpdb->prepare($existing_query, $existing_params));
 
             if ($existing_member) {
                 wp_send_json_error('A member with this aadhar number already exists');
@@ -370,9 +605,15 @@ class PM_Gym_Admin
 
         // Check if phone number already exists and belongs to different member
         if (!empty($phone)) {
-            $existing_member = $wpdb->get_var(
-                $wpdb->prepare("SELECT id FROM $members_table WHERE phone = %s AND id != %d", $phone, $record_id)
-            );
+            $existing_query = "SELECT id FROM $members_table WHERE phone = %s";
+            $existing_params = array($phone);
+
+            if ($record_id > 0) {
+                $existing_query .= " AND id != %d";
+                $existing_params[] = $record_id;
+            }
+
+            $existing_member = $wpdb->get_var($wpdb->prepare($existing_query, $existing_params));
 
             if ($existing_member) {
                 wp_send_json_error('A member with this phone number already exists');
@@ -382,9 +623,15 @@ class PM_Gym_Admin
 
         // Check if member ID already exists and belongs to a different member
         if (!empty($member_id)) {
-            $existing_member = $wpdb->get_var(
-                $wpdb->prepare("SELECT id FROM $members_table WHERE member_id = %d AND id != %d", $member_id, $record_id)
-            );
+            $existing_query = "SELECT id FROM $members_table WHERE member_id = %d";
+            $existing_params = array($member_id);
+
+            if ($record_id > 0) {
+                $existing_query .= " AND id != %d";
+                $existing_params[] = $record_id;
+            }
+
+            $existing_member = $wpdb->get_var($wpdb->prepare($existing_query, $existing_params));
 
             if ($existing_member) {
                 wp_send_json_error('A member with this ID already exists');
@@ -447,9 +694,12 @@ class PM_Gym_Admin
             );
 
             if ($result) {
-                $member_id = $wpdb->insert_id;
+                $member_db_id = $wpdb->insert_id;
+                // Preserve the formatted member_id from form before it gets overwritten
+                $formatted_member_id = $member_id;
+
                 if (!empty($trainer_id)) {
-                    PM_Gym_Helpers::add_member_meta($member_id, 'trainer_id', $trainer_id, false);
+                    PM_Gym_Helpers::add_member_meta($member_db_id, 'trainer_id', $trainer_id, false);
                 }
 
                 // Insert member meta
@@ -468,7 +718,24 @@ class PM_Gym_Admin
                     // $member_meta_format = array('%d', '%s', '%s');
 
                     // $wpdb->insert($member_meta_table, $member_meta_data, $member_meta_format);
-                    PM_Gym_Helpers::add_member_meta($member_id, 'signature', $signature, false);
+                    PM_Gym_Helpers::add_member_meta($member_db_id, 'signature', $signature, false);
+                }
+
+                // Save face descriptor if provided
+                $face_descriptor = isset($_POST['face_descriptor']) ? $_POST['face_descriptor'] : null;
+                if (!empty($face_descriptor)) {
+                    // Validate face descriptor format
+                    $descriptor_array = json_decode($face_descriptor, true);
+                    if (is_array($descriptor_array) && count($descriptor_array) === 128) {
+                        $face_saved = PM_Gym_Helpers::add_member_meta($member_db_id, 'face_descriptor', $face_descriptor, false);
+                        if ($face_saved) {
+                            error_log('PM Gym: Face descriptor saved successfully for member ID: ' . $member_db_id);
+                        } else {
+                            error_log('PM Gym: Failed to save face descriptor for member ID: ' . $member_db_id);
+                        }
+                    } else {
+                        error_log('PM Gym: Invalid face descriptor format for member ID: ' . $member_db_id . ' (length: ' . (is_array($descriptor_array) ? count($descriptor_array) : 'not array') . ')');
+                    }
                 }
 
                 wp_send_json_success(array(
@@ -476,6 +743,8 @@ class PM_Gym_Admin
                     'member_id' => $wpdb->insert_id
                 ));
             } else {
+                error_log('PM Gym: Database error adding member: ' . $wpdb->last_error);
+                error_log('PM Gym: Member data: ' . print_r($member_data, true));
                 wp_send_json_error('Error adding member: ' . $wpdb->last_error);
             }
         }
@@ -936,9 +1205,11 @@ class PM_Gym_Admin
         global $wpdb;
         $staff_table = PM_GYM_STAFF_TABLE;
 
+        // ARRAY_A is a WordPress constant for associative array return type
+        // Using 'ARRAY_A' string directly as it's a standard WordPress constant
         $staff = $wpdb->get_row(
             $wpdb->prepare("SELECT * FROM $staff_table WHERE staff_id = %s", $staff_id),
-            ARRAY_A //ARRAY_A is used to return the result as an associative array
+            'ARRAY_A'
         );
 
         if ($staff) {
@@ -990,5 +1261,19 @@ class PM_Gym_Admin
 
         $next_id = PM_Gym_Helpers::get_next_staff_id();
         wp_send_json_success(array('next_id' => $next_id));
+    }
+
+    /**
+     * Check database tables on admin init
+     * Ensures tables exist and have all required columns
+     */
+    public function check_database_tables()
+    {
+        // Always check tables - don't use transient to ensure tables are created immediately
+        // Check and create tables if they don't exist
+        PM_Gym_Activator::check_and_create_tables();
+
+        // Check and add missing columns
+        PM_Gym_Activator::check_and_add_columns();
     }
 }

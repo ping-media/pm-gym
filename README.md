@@ -1,10 +1,10 @@
 # PM Gym Management
 
-A comprehensive gym management system for WordPress with member management, staff management, attendance tracking, fee management, and digital signature capabilities.
+A comprehensive gym management system for WordPress with member management, staff management, attendance tracking with face recognition, fee management, and digital signature capabilities.
 
 ## Description
 
-PM Gym Management is a powerful WordPress plugin designed to help gym owners efficiently manage their business operations. This plugin provides a complete solution for managing gym members and staff, tracking attendance with shift-based systems, handling membership packages, processing payments, capturing digital signatures, and generating comprehensive reports through CSV exports.
+PM Gym Management is a powerful WordPress plugin designed to help gym owners efficiently manage their business operations. This plugin provides a complete solution for managing gym members and staff, tracking attendance with face recognition technology and shift-based systems, handling membership packages, processing payments, capturing digital signatures, and generating comprehensive reports through CSV exports.
 
 ## Features
 
@@ -59,6 +59,19 @@ PM Gym Management is a powerful WordPress plugin designed to help gym owners eff
   - Signature display shortcode for frontend integration
   - Multi-level JSON encoding support for signature data
 
+- **Face Recognition & Enrollment**
+
+  - Real-time face recognition for attendance check-in/check-out
+  - Automatic member identification using face matching technology
+  - Face enrollment during member registration process
+  - Dedicated face enrollment form for existing members
+  - Admin face enrollment management from member details page
+  - Face descriptor storage using 128-dimensional vectors
+  - Face data validation and caching for improved performance
+  - Configurable face matching threshold for accuracy control
+  - Secure camera access with HTTPS/localhost requirements
+  - Real-time face detection and matching using machine learning models
+
 - **Data Export & Reporting**
 
   - CSV export functionality for all data types
@@ -69,9 +82,10 @@ PM Gym Management is a powerful WordPress plugin designed to help gym owners eff
 - **Shortcodes & Frontend Integration**
 
   - Member registration form shortcode
-  - Attendance tracking form shortcode
+  - Attendance tracking form shortcode with face recognition support
   - Staff attendance form shortcode
   - Member signature display shortcode
+  - Face enrollment form shortcode
   - Responsive design for mobile compatibility
 
 - **Security & Validation**
@@ -92,6 +106,8 @@ PM Gym Management is a powerful WordPress plugin designed to help gym owners eff
 - WordPress 5.0 or higher
 - PHP 7.2 or higher
 - MySQL 5.6 or higher
+- HTTPS connection, localhost, or .local domain (required for face recognition camera access)
+- Modern web browser with camera support (for face recognition features)
 
 ## Usage
 
@@ -103,10 +119,11 @@ You can access the plugin settings from the WordPress dashboard under "PM Gym" m
 
 The plugin provides various shortcodes that you can use to display gym management features on your website:
 
-- `[attendance_form_shortcode]` - Displays the member attendance tracking form
-- `[member_registration_form_shortcode]` - Displays the member registration form with digital signature
+- `[attendance_form_shortcode]` - Displays the member attendance tracking form with face recognition support
+- `[member_registration_form_shortcode]` - Displays the member registration form with digital signature and face enrollment
 - `[staff_attendance_form_shortcode]` - Displays the staff attendance tracking form
 - `[member_signature member_id="123"]` - Displays a member's digital signature (replace 123 with actual member ID)
+- `[face_enrollment_form]` - Displays the face enrollment form for members to register or update their face recognition data
 
 These shortcodes can be used on any page or post to integrate gym management functionality into your website's frontend.
 
@@ -123,6 +140,49 @@ For support requests or bug reports, please contact:
 This plugin is licensed under the GPL v2 or later.
 
 ## Changelog
+
+### 1.3.0
+
+- Added comprehensive face recognition system for attendance tracking
+- Implemented real-time face scanning during attendance check-in/check-out
+- Added automatic member identification using face matching technology
+- Integrated "Scan Face" button in attendance form for quick member recognition
+- Created dedicated face enrollment form with shortcode `[face_enrollment_form]`
+- Added face enrollment capability during member registration process
+- Implemented admin face enrollment management from member details page
+- Integrated face-api.js library (@vladmandic/face-api v0.22.2) for face recognition
+- Added machine learning models: TinyFaceDetector, FaceLandmark68Net, and FaceRecognitionNet
+- Implemented face descriptor storage using 128-dimensional vectors in member meta
+- Added face data validation and caching system for improved performance
+- Implemented configurable face matching threshold (default: 0.6, configurable via PM_GYM_FACE_MATCH_THRESHOLD constant)
+- Added secure camera access validation (requires HTTPS, localhost, or .local domain)
+- Enhanced attendance form with face recognition fallback to manual member ID entry
+- Added face enrollment status indicators and member verification system
+- Implemented real-time face detection with visual feedback during scanning
+- Added face descriptor update and deletion functionality for admin users
+- Enhanced member registration form with optional face enrollment during signup
+- Improved user experience with face capture preview and retake functionality
+- Added comprehensive error handling for camera access and face recognition failures
+- Implemented face matching algorithm with distance calculation for member identification
+- Added support for multiple face enrollment methods (registration, dedicated form, admin panel)
+
+### 1.2.5
+
+- Added dedicated Guest Attendance admin page for managing guest attendance records
+- Implemented comprehensive guest attendance filtering by time period (Today, Last 7 Days, Last 30 Days, All Time)
+- Added date selection filter for viewing attendance on specific dates
+- Implemented search functionality to filter guests by name or phone number
+- Added guest attendance statistics showing total attendance, active guests, and checked-out guests
+- Enhanced guest attendance table with check-in/check-out times, duration, and status indicators
+- Implemented check-out functionality for guests directly from attendance page
+- Added delete functionality for guest attendance records
+- Enhanced CSV export functionality to support guest-only attendance exports
+- Improved export function with user type filtering and proper date handling
+- Added reset filters button for easy filter clearing
+- Implemented auto-refresh functionality for real-time attendance updates
+- Enhanced attendance search functionality to support multi-field search (Member ID, Phone Number, and Name)
+- Updated search field UI with improved label and placeholder text
+- Implemented comprehensive search across member and guest records for better attendance filtering
 
 ### 1.2.4
 

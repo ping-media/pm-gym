@@ -148,7 +148,7 @@ $attendance_rate = $total_staff > 0 ? round(($today_count / $total_staff) * 100,
 
         <!-- Today's Attendance -->
         <div class="today-attendance">
-            <h2>Attendance Records (<?php echo esc_html(date('d M Y', strtotime($from_date))); ?> - <?php echo esc_html(date('d M Y', strtotime($to_date))); ?>)</h2>
+            <h2>Attendance Records </h2>
             <table class="wp-list-table widefat fixed striped">
                 <thead>
                     <tr>
