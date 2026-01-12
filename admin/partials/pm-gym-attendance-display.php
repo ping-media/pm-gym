@@ -37,6 +37,9 @@ $selected_date = isset($_GET['attendance_date']) ? sanitize_text_field($_GET['at
 $member_id = isset($_GET['member_id']) ? sanitize_text_field($_GET['member_id']) : '';
 $time_period = isset($_GET['time_period']) ? sanitize_text_field($_GET['time_period']) : 'today';
 
+// Parse member ID from search input (handles formatted IDs like "#0001", "0001", or "1")
+$parsed_member_id = !empty($member_id) ? PM_Gym_Helpers::parse_member_id($member_id) : false;
+
 // Build the query with member ID filter
 $query = "SELECT a.*, 
     CASE 
@@ -60,6 +63,7 @@ LEFT JOIN " . PM_GYM_MEMBERS_TABLE . " m ON a.user_id = m.id AND a.user_type = '
 LEFT JOIN " . PM_GYM_GUEST_USERS_TABLE . " g ON a.user_id = g.id AND a.user_type = 'guest'
 WHERE 1=1";
 
+
 $query_params = array();
 
 // Add time period filter
@@ -81,18 +85,39 @@ switch ($time_period) {
 
 if (!empty($member_id)) {
     $search_term = '%' . $wpdb->esc_like($member_id) . '%';
-    $query .= " AND (
-        CAST(m.member_id AS CHAR) LIKE %s OR
-        m.name LIKE %s OR
-        m.phone LIKE %s OR
-        g.name LIKE %s OR
-        g.phone LIKE %s
-    )";
-    $query_params[] = $search_term; // For member ID (cast to string for LIKE)
-    $query_params[] = $search_term; // For member name
-    $query_params[] = $search_term; // For member phone
-    $query_params[] = $search_term; // For guest name
-    $query_params[] = $search_term; // For guest phone
+
+    // Build search conditions
+    $search_conditions = array();
+
+    // If we successfully parsed a numeric member ID, search by exact match or partial match
+    if ($parsed_member_id !== false) {
+        // Exact match for member ID
+        $search_conditions[] = "m.member_id = %d";
+        $query_params[] = $parsed_member_id;
+
+        // Also support partial match on formatted member ID (e.g., searching "1" should find "1", "10", "11", etc.)
+        $search_conditions[] = "CAST(COALESCE(m.member_id, 0) AS CHAR) LIKE %s";
+        $query_params[] = '%' . $wpdb->esc_like($parsed_member_id) . '%';
+    } else {
+        // If parsing failed, try string-based search on member ID
+        $search_conditions[] = "CAST(COALESCE(m.member_id, 0) AS CHAR) LIKE %s";
+        $query_params[] = $search_term;
+    }
+
+    // Always search by name and phone for both members and guests
+    $search_conditions[] = "m.name LIKE %s";
+    $query_params[] = $search_term;
+
+    $search_conditions[] = "m.phone LIKE %s";
+    $query_params[] = $search_term;
+
+    $search_conditions[] = "g.name LIKE %s";
+    $query_params[] = $search_term;
+
+    $search_conditions[] = "g.phone LIKE %s";
+    $query_params[] = $search_term;
+
+    $query .= " AND (" . implode(' OR ', $search_conditions) . ")";
 }
 
 $query .= " ORDER BY a.check_in_date DESC, a.check_in_time DESC";
