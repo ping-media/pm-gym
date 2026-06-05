@@ -141,6 +141,13 @@ This plugin is licensed under the GPL v2 or later.
 
 ## Changelog
 
+### 1.3.1
+
+- Fixed member View button linking to wrong member details (was using database auto-increment ID instead of member ID)
+- Fixed undefined property warning for attendance_type in member details page
+- Fixed attendance search to use strict exact matching for member IDs (searching "0036" no longer matches "0736", "0366", etc.)
+- Fixed attendance search showing inconsistent results compared to member details page by querying user_id directly
+
 ### 1.3.0
 
 - Added comprehensive face recognition system for attendance tracking
