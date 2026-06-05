@@ -143,6 +143,18 @@ $aadhar_number = isset($member->aadhar_number) ? $member->aadhar_number : 'N/A';
         <?php if (empty($member_attendance)): ?>
             <p class="no-attendance">No attendance records found for this member.</p>
         <?php else: ?>
+            <div class="attendance-summary">
+                <p><strong>Total Attendance Records:</strong> <?php echo count($member_attendance); ?></p>
+                <p><strong>Last Visit:</strong>
+                    <?php
+                    if (!empty($member_attendance)) {
+                        echo esc_html(PM_Gym_Helpers::format_date($member_attendance[0]->check_in_date));
+                    } else {
+                        echo 'No visits recorded';
+                    }
+                    ?>
+                </p>
+            </div>
             <div class="attendance-table-container">
                 <table class="wp-list-table widefat fixed striped">
                     <thead>
@@ -189,8 +201,11 @@ $aadhar_number = isset($member->aadhar_number) ? $member->aadhar_number : 'N/A';
                                     ?>
                                 </td>
                                 <td>
-                                    <span class="attendance-type-badge attendance-type-<?php echo esc_attr($attendance->attendance_type); ?>">
-                                        <?php echo esc_html(ucfirst(str_replace('_', ' ', $attendance->attendance_type))); ?>
+                                    <?php
+                                    $attendance_type = isset($attendance->attendance_type) ? $attendance->attendance_type : 'regular';
+                                    ?>
+                                    <span class="attendance-type-badge attendance-type-<?php echo esc_attr($attendance_type); ?>">
+                                        <?php echo esc_html(ucfirst(str_replace('_', ' ', $attendance_type))); ?>
                                     </span>
                                 </td>
                             </tr>
@@ -199,18 +214,7 @@ $aadhar_number = isset($member->aadhar_number) ? $member->aadhar_number : 'N/A';
                 </table>
             </div>
 
-            <div class="attendance-summary">
-                <p><strong>Total Attendance Records:</strong> <?php echo count($member_attendance); ?></p>
-                <p><strong>Last Visit:</strong>
-                    <?php
-                    if (!empty($member_attendance)) {
-                        echo esc_html(PM_Gym_Helpers::format_date($member_attendance[0]->check_in_date));
-                    } else {
-                        echo 'No visits recorded';
-                    }
-                    ?>
-                </p>
-            </div>
+
         <?php endif; ?>
     </div>
 </div>

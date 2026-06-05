@@ -307,7 +307,7 @@ if (empty($membership_types) || is_wp_error($membership_types)) {
                                 </span>
                             </td>
                             <td>
-                                <a href="<?php echo esc_url(add_query_arg(array('id' => $member->id), admin_url('admin.php?page=pm-gym-members'))); ?>" class="button view-member button-success">View</a>
+                                <a href="<?php echo esc_url(add_query_arg(array('id' => $member->member_id), admin_url('admin.php?page=pm-gym-members'))); ?>" class="button view-member button-success">View</a>
                                 <button class="button edit-member" data-id="<?php echo esc_attr($member->id); ?>">Edit</button>
 
                                 <?php if (current_user_can('administrator') && get_current_user_id() === 1): ?>

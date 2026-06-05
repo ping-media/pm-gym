@@ -89,22 +89,26 @@ if (!empty($member_id)) {
     // Build search conditions
     $search_conditions = array();
 
-    // If we successfully parsed a numeric member ID, search by exact match or partial match
+    // If we successfully parsed a numeric member ID, search by EXACT match only
     if ($parsed_member_id !== false) {
-        // Exact match for member ID
-        $search_conditions[] = "m.member_id = %d";
-        $query_params[] = $parsed_member_id;
-
-        // Also support partial match on formatted member ID (e.g., searching "1" should find "1", "10", "11", etc.)
-        $search_conditions[] = "CAST(COALESCE(m.member_id, 0) AS CHAR) LIKE %s";
-        $query_params[] = '%' . $wpdb->esc_like($parsed_member_id) . '%';
-    } else {
-        // If parsing failed, try string-based search on member ID
-        $search_conditions[] = "CAST(COALESCE(m.member_id, 0) AS CHAR) LIKE %s";
-        $query_params[] = $search_term;
+        // First, find the member's internal ID from their member_id
+        $member_internal_id = $wpdb->get_var($wpdb->prepare(
+            "SELECT id FROM " . PM_GYM_MEMBERS_TABLE . " WHERE member_id = %d",
+            $parsed_member_id
+        ));
+        
+        if ($member_internal_id) {
+            // Search by the member's internal user_id directly (matches how member details page queries)
+            $search_conditions[] = "a.user_id = %d";
+            $query_params[] = $member_internal_id;
+        } else {
+            // Fallback: search by member_id through the JOIN
+            $search_conditions[] = "m.member_id = %d";
+            $query_params[] = $parsed_member_id;
+        }
     }
 
-    // Always search by name and phone for both members and guests
+    // Also search by name and phone for both members and guests (partial match is fine for these)
     $search_conditions[] = "m.name LIKE %s";
     $query_params[] = $search_term;
 
