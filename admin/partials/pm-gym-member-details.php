@@ -128,10 +128,11 @@ $aadhar_number = isset($member->aadhar_number) ? $member->aadhar_number : 'N/A';
 
     <?php
     // Get attendance records for this member
+    // IMPORTANT: Must filter by user_type to avoid conflict with guest users who may have the same id
     global $wpdb;
     $attendance_table = PM_GYM_ATTENDANCE_TABLE;
     $member_attendance = $wpdb->get_results($wpdb->prepare(
-        "SELECT * FROM $attendance_table WHERE user_id = %d ORDER BY check_in_date DESC",
+        "SELECT * FROM $attendance_table WHERE user_id = %d AND user_type = 'member' ORDER BY check_in_date DESC",
         $user_id
     ));
 

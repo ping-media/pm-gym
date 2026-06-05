@@ -204,11 +204,13 @@ class PM_Gym_Attendance
 
             // Check existing attendance for today
             // Check existing attendance for today from the attendance table
+            // IMPORTANT: Must filter by user_type to avoid conflict with guest users who may have the same id
             $attendance_table = PM_GYM_ATTENDANCE_TABLE;
             $existing_attendance = $wpdb->get_results(
                 $wpdb->prepare(
                     "SELECT * FROM $attendance_table 
                     WHERE user_id = %d 
+                    AND user_type = 'member'
                     AND check_in_date = %s",
                     $member->id,
                     $today

@@ -143,10 +143,14 @@ This plugin is licensed under the GPL v2 or later.
 
 ### 1.3.1
 
+- **Critical Fix:** Fixed member/guest attendance conflict when both have the same internal database ID
+  - Added `user_type` filter to all attendance queries to prevent mixing member and guest records
+  - Fixed attendance check-in validation to only check member's own attendance, not guest records with same ID
+  - Fixed member details page to only show member attendance, excluding guest records with conflicting IDs
+  - Fixed attendance search to properly filter by user_type when searching by member ID
 - Fixed member View button linking to wrong member details (was using database auto-increment ID instead of member ID)
 - Fixed undefined property warning for attendance_type in member details page
 - Fixed attendance search to use strict exact matching for member IDs (searching "0036" no longer matches "0736", "0366", etc.)
-- Fixed attendance search showing inconsistent results compared to member details page by querying user_id directly
 
 ### 1.3.0
 

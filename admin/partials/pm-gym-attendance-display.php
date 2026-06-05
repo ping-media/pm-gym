@@ -98,8 +98,9 @@ if (!empty($member_id)) {
         ));
         
         if ($member_internal_id) {
-            // Search by the member's internal user_id directly (matches how member details page queries)
-            $search_conditions[] = "a.user_id = %d";
+            // Search by the member's internal user_id AND user_type to avoid conflict with guest users
+            // who may have the same id in their table
+            $search_conditions[] = "(a.user_id = %d AND a.user_type = 'member')";
             $query_params[] = $member_internal_id;
         } else {
             // Fallback: search by member_id through the JOIN
